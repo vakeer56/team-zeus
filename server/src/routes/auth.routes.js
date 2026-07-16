@@ -43,14 +43,14 @@ const loginLimiter = rateLimit({
     max: 8,
     standardHeaders: true,
     legacyHeaders: false,
-    validate: { default: false },
+    validate: { trustProxy: false },
     keyGenerator: (req) => {
         const email =
             typeof req.body?.email === "string"
                 ? req.body.email.trim().toLowerCase()
                 : "unknown";
 
-        return `${ipKeyGenerator(req.ip)}:${email}`;
+        return `${req.ip}:${email}`;
     },
     message: {
         success: false,
@@ -63,8 +63,7 @@ const registerLimiter = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    validate: { default: false },
-    keyGenerator: (req) => ipKeyGenerator(req.ip),
+    validate: { trustProxy: false },
     message: {
         success: false,
         message: "Too many registrations from this IP. Please try again later.",
