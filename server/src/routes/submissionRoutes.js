@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getAiReport } = require("../controllers/aiReportController");
+const { getAiReport, generateAiReport } = require("../controllers/aiReportController");
 const { 
   startSubmission, 
   updateSubmission, 
@@ -21,8 +21,8 @@ router.get("/:id", requireAuth, getSubmissionDetails);
 // Update answers / submit assessment
 router.put("/:id", requireAuth, updateSubmission);
 
-// Legacy AI report route
+// Legacy AI report routes
 router.get("/:id/ai-report", requireAuth, getAiReport);
+router.post("/:id/ai-report/generate", requireAuth, generateAiReport);
 
 module.exports = router;
-

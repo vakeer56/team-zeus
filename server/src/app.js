@@ -6,8 +6,10 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
+const assessmentRoutes = require('./routes/assessment.routes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const proctorRoutes = require('./routes/proctorRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const ApiError = require('./utils/ApiError');
 
 const app = express();
@@ -15,8 +17,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(authRoutes);
+app.use(assessmentRoutes);
 app.use('/submissions', submissionRoutes);
 app.use('/proctor', proctorRoutes);
+app.use('/reports', reportRoutes);
 
 app.get('/', (_req, res) => res.send('app is alive'));
 
