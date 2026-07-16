@@ -257,7 +257,7 @@ export const AssessmentPage: React.FC = () => {
         return;
       }
       const test = JSON.parse(currentTestObj);
-      const response = await fetch("https://team-zeus.onrender.com/submissions", {
+      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/submissions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -286,7 +286,7 @@ export const AssessmentPage: React.FC = () => {
       const currentSubId = submissionIdRef.current;
       if (!currentSubId) return;
       const token = localStorage.getItem('evalix_auth_token');
-      await fetch(`https://team-zeus.onrender.com/proctor/submissions/${currentSubId}/proctor-event`, {
+      await fetch(`https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/proctor/submissions/${currentSubId}/proctor-event`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -340,7 +340,7 @@ export const AssessmentPage: React.FC = () => {
         }
       };
 
-      await fetch(`https://team-zeus.onrender.com/submissions/${currentSubId}`, {
+      await fetch(`https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/submissions/${currentSubId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

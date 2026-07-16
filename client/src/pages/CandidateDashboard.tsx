@@ -42,7 +42,7 @@ export const CandidateDashboard: React.FC = () => {
   const fetchAssessments = async () => {
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("https://team-zeus.onrender.com/assessments", {
+      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/assessments", {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -71,7 +71,7 @@ export const CandidateDashboard: React.FC = () => {
     fetchAssessments();
 
     // 2. Setup Socket.io real-time connection to backend
-    const socket = io("https://team-zeus.onrender.com");
+    const socket = io("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app");
 
     socket.on("connect", () => {
       console.log("Connected to real-time proctor socket.");
@@ -121,7 +121,7 @@ export const CandidateDashboard: React.FC = () => {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("https://team-zeus.onrender.com/update-profile", {
+      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/update-profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

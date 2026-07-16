@@ -29,7 +29,7 @@ export const RecruiterLoginPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch("https://team-zeus.onrender.com/login", {
+      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
