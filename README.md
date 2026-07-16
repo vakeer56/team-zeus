@@ -298,9 +298,8 @@ These are created by the **optional** seed scripts above — they only exist in 
 
 | Role | Email | Password | Created by |
 |---|---|---|---|
-| Recruiter | `admin@recruiter.evalix.com` | `Password123` | `server/create-recruiter.js` |
-| Recruiter | `recruiter@recruiter.evalix.com` | `password123` | `server/src/seed/scripts.js` |
-| Candidate | `candidate@test.com` | `password123` | `server/src/seed/scripts.js` |
+| Recruiter | `recruiter@recruiter.evalix.com` | `SecurePassword123` | `server/src/seed/scripts.js` |
+| Candidate | `venky@gmail.com` | `asdfghjkl;'` | `server/src/seed/scripts.js` |
 | Candidate | `attacker@test.com` | `password123` | `server/src/seed/scripts.js` (used to test ownership/authorization bugs) |
 
 There is no seeded `admin`-role account (see [Known Limitations](#known-limitations)); to test admin-only behavior, set a user's `role` field to `admin` directly in MongoDB.
