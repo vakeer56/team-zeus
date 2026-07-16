@@ -6,7 +6,9 @@ const validateRequestBody = (schema) => (req, res, next) => {
             success: false,
             message: "Validation failed",
             errors: result.error.issues.map((issue) => ({
-                path: issue.path.join("."),
+                path: issue.code === "unrecognized_keys"
+                    ? issue.keys.join(".")
+                    : issue.path.join("."),
                 message: issue.message,
             })),
         });

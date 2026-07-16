@@ -23,7 +23,7 @@ const authenticate = (req, res, next) => {
             return res.status(err.statusCode).json({ success: false, message: err.message });
         }
 
-        if (err.name === "TokenExpiredError") {
+        if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError" || err.name === "NotBeforeError") {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 

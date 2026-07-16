@@ -11,6 +11,10 @@ const sanitizeAssessment = (assessment, role = "candidate") => {
         return value;
     };
 
+    const sensitiveFields = role === "admin"
+        ? ["__v", "createdBy"]
+        : ["__v", "createdBy", "correctOptionIndex", "hiddenTestCases"];
+
     const sanitizeNode = (value) => {
         if (Array.isArray(value)) {
             return value.map((item) => sanitizeNode(item));
@@ -23,7 +27,7 @@ const sanitizeAssessment = (assessment, role = "candidate") => {
         const result = {};
 
         for (const [key, nestedValue] of Object.entries(value)) {
-            if (["__v", "createdBy", "correctOptionIndex", "hiddenTestCases"].includes(key)) {
+            if (sensitiveFields.includes(key)) {
                 continue;
             }
 
@@ -41,16 +45,12 @@ const sanitizeAssessment = (assessment, role = "candidate") => {
     const sanitizeQuestion = (question) => {
         const sanitizedQuestion = sanitizeNode(question);
 
-        if (sanitizedQuestion.type !== "CODE") {
+        if (role !== "admin" && sanitizedQuestion.type !== "CODE") {
             delete sanitizedQuestion.sampleTestCases;
         }
 
         return sanitizedQuestion;
     };
-
-    if (role === "admin") {
-        return toPlainObject(assessment);
-    }
 
     return sanitizeNode(toPlainObject(assessment));
 };
