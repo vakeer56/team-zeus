@@ -25,6 +25,14 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'candidate'],   // whitelist — prevents privilege injection
     default: 'candidate',
     required: true
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    default: null
   }
 }, { timestamps: true });          // adds createdAt, updatedAt
 
