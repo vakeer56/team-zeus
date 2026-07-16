@@ -99,6 +99,16 @@ export const CandidateLoginPage: React.FC = () => {
         setForgotPasswordMode(false);
       } else if (isSignUp) {
         // --- SIGN UP / REGISTRATION FLOW ---
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email)) {
+          toast.error("Please enter a valid email address with a proper domain extension (e.g., user@example.com).", {
+            duration: 5000,
+            style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+          });
+          setIsLoading(false);
+          return;
+        }
+
         if (isRecruiterEmail(email)) {
           toast.error("Recruiter accounts cannot be self-registered. Contact system administrator.", {
             duration: 5000,
