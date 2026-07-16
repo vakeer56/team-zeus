@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const submissionRoutes = require('./src/routes/submissionRoutes');
 const authRoutes = require('./src/routes/auth.routes');
 
 const app = express();
@@ -9,6 +10,10 @@ require('dotenv').config();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use('/submissions', submissionRoutes);
+
+
+//-----------------------------REMOVE THE CONSOLE MSSGE LATER -------------------------------
 app.use(authRoutes);
 
 mongoose.connect(process.env.DB_URL)
