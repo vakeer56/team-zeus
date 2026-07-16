@@ -173,4 +173,6 @@ The following accounts are pre-seeded and available for evaluation:
 | _Aakash Raj_ | _Backend Developer / Frontend Developer_ |
 | _Krishsudharsun_ | _Security Developer / Tester_ |
 
-_Add team member names and contact details before final submission._
+Limitations:
+- Sending reset password is not possible in a site hosted with render.
+- Hence Forget password feature and change email verification is not possible.
