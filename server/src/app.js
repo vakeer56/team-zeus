@@ -24,9 +24,29 @@ const configuredOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
     : defaultOrigins;
 
+const isAllowedVercelPreview = (origin) => {
+    try {
+        const { hostname, protocol } = new URL(origin);
+        return (
+            protocol === 'https:' &&
+            hostname.endsWith('.vercel.app') &&
+            hostname.startsWith('team-zeus-')
+        );
+    } catch {
+        return false;
+    }
+};
+
 app.use(
     cors({
-        origin: configuredOrigins,
+        origin(origin, callback) {
+            if (!origin || configuredOrigins.includes(origin) || isAllowedVercelPreview(origin)) {
+                callback(null, true);
+                return;
+            }
+
+            callback(new ApiError(403, 'Origin not allowed by CORS'));
+        },
         credentials: true,
     }),
 );
