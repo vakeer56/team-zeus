@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LandingPage } from './pages/LandingPage';
 import { CandidateLoginPage } from './pages/CandidateLoginPage';
+import { RecruiterLoginPage } from './pages/RecruiterLoginPage';
 import { RecruiterDashboard } from './pages/RecruiterDashboard';
 import { CandidateDashboard } from './pages/CandidateDashboard';
 import { CreateAssessmentPage } from './pages/CreateAssessmentPage';
@@ -34,7 +35,7 @@ function App() {
           <Route path="/login" element={<CandidateLoginPage />} />
           <Route path="/login-select" element={<CandidateLoginPage />} />
           <Route path="/login-candidate" element={<CandidateLoginPage />} />
-          <Route path="/login-recruiter" element={<CandidateLoginPage />} />
+          <Route path="/login-recruiter" element={<RecruiterLoginPage />} />
           <Route path="/recruiter-dashboard" element={<RecruiterDashboard />} />
           <Route path="/candidate-dashboard" element={<CandidateDashboard />} />
           <Route path="/create-assessment" element={<CreateAssessmentPage />} />
@@ -48,4 +49,3 @@ function App() {
 }
 
 export default App;
-

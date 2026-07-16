@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Briefcase, Mail, Lock, ArrowLeft, BarChart3, TrendingUp, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { apiUrl } from '../config/api';
 
 export const RecruiterLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export const RecruiterLoginPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/login", {
+      const response = await fetch(apiUrl('/login'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

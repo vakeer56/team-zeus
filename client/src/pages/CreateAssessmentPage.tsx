@@ -9,6 +9,7 @@ import {
   FileCode
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { apiUrl } from '../config/api';
 
 interface FormQuestion {
   id: string;
@@ -153,7 +154,7 @@ export const CreateAssessmentPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/assessments", {
+      const response = await fetch(apiUrl('/assessments'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

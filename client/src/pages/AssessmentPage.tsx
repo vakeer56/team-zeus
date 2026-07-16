@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import evalixLogoWithoutText from '../assets/evalix-logo-without-text.png';
+import { apiUrl } from '../config/api';
 
 loader.config({
   paths: {
@@ -257,7 +258,7 @@ export const AssessmentPage: React.FC = () => {
         return;
       }
       const test = JSON.parse(currentTestObj);
-      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/submissions", {
+      const response = await fetch(apiUrl('/submissions'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -286,7 +287,7 @@ export const AssessmentPage: React.FC = () => {
       const currentSubId = submissionIdRef.current;
       if (!currentSubId) return;
       const token = localStorage.getItem('evalix_auth_token');
-      await fetch(`https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/proctor/submissions/${currentSubId}/proctor-event`, {
+      await fetch(apiUrl(`/proctor/submissions/${currentSubId}/proctor-event`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -340,7 +341,7 @@ export const AssessmentPage: React.FC = () => {
         }
       };
 
-      await fetch(`https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/submissions/${currentSubId}`, {
+      await fetch(apiUrl(`/submissions/${currentSubId}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

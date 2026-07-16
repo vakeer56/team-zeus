@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Laptop, Mail, Lock, User, Terminal, Eye, ShieldCheck, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { apiUrl } from '../config/api';
 
 export const CandidateLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export const CandidateLoginPage: React.FC = () => {
         }
 
         // 2. Call backend register route
-        const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/register", {
+        const response = await fetch(apiUrl('/register'), {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -60,7 +61,7 @@ export const CandidateLoginPage: React.FC = () => {
       } else {
         // --- SIGN IN / LOGIN FLOW ---
         // 1. Call backend login route
-        const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/login", {
+        const response = await fetch(apiUrl('/login'), {
           method: "POST",
           headers: {
             "Content-Type": "application/json"

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import evalixLogoWithoutText from '../assets/evalix-logo-without-text.png';
+import { API_BASE_URL, apiUrl } from '../config/api';
 
 interface CandidateRecord {
   name: string;
@@ -66,7 +67,7 @@ export const RecruiterDashboard: React.FC = () => {
   const loadAssessments = async () => {
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/assessments", {
+      const response = await fetch(apiUrl('/assessments'), {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -88,9 +89,9 @@ export const RecruiterDashboard: React.FC = () => {
   const loadSubmissions = async () => {
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const url = selectedAssessmentId 
-        ? `https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/submissions?assessmentId=${selectedAssessmentId}` 
-        : `https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/submissions`;
+      const url = selectedAssessmentId
+        ? apiUrl(`/submissions?assessmentId=${selectedAssessmentId}`)
+        : apiUrl('/submissions');
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -116,7 +117,7 @@ export const RecruiterDashboard: React.FC = () => {
     }
     loadAssessments();
 
-    const socket = io("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app");
+    const socket = io(API_BASE_URL);
     socket.on("submission_updated", () => {
       loadSubmissions();
     });
@@ -201,7 +202,7 @@ export const RecruiterDashboard: React.FC = () => {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/update-profile", {
+      const response = await fetch(apiUrl('/update-profile'), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -238,7 +239,7 @@ export const RecruiterDashboard: React.FC = () => {
     setIsRegisteringRecruiter(true);
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/create-recruiter", {
+      const response = await fetch(apiUrl('/create-recruiter'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -430,7 +431,7 @@ export const RecruiterDashboard: React.FC = () => {
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('evalix_auth_token');
-                      const response = await fetch(`https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/assessments/${selectedAssessment._id}/make-live`, {
+                      const response = await fetch(apiUrl(`/assessments/${selectedAssessment._id}/make-live`), {
                         method: 'PUT',
                         headers: {
                           'Authorization': `Bearer ${token}`
