@@ -391,50 +391,15 @@ Documented honestly, per the hackathon's submission guidelines:
 - **`GET /reports/submissions/:id` and `GET /submissions/:id/ai-report`** are two different URLs for the same underlying handler (`reportController.getReport`) — harmless, but worth knowing if calling the API directly.
 - **Client dev vs. prod default port mismatch:** `client/src/config/api.ts` defaults to `http://localhost:3001` on localhost, while the server defaults to port `3000`. Set `VITE_API_URL` explicitly, or align the two, to avoid confusion.
 
-## Security Self-Testing Guide
-
-This is a **checklist for testing your own local/dev deployment** of this app before a hackathon demo or a real deploy — not a general hacking tutorial. Only point these tools at hosts you own or are explicitly authorized to test (your own `localhost` instance, or a deployment you control). Scanning or attacking systems without authorization is illegal in most jurisdictions.
-
-**Suggested order, using tools already in Kali:**
-
-1. **Confirm scope and get the app running locally.** Start the server (`npm run dev`) and client (`npm run dev`), and only target those local addresses/ports.
-2. **Recon the running services** — `nmap -sV -p- localhost` to confirm which ports/services are actually exposed (Express on 3000, Vite on 5173, MongoDB on 27017 if local). Anything beyond client+server+DB shouldn't be listening.
-3. **Basic HTTP fingerprinting** — `nikto -h http://localhost:3000` and `nikto -h http://localhost:5173` to check for missing security headers (e.g. no `helmet`-style headers are currently set on the Express app), verbose error messages, and default files.
-4. **API endpoint enumeration** — since the API surface is fully documented above, load it into **Burp Suite** or **OWASP ZAP** as a manual test list rather than blind-fuzzing; use their repeater/intruder features to replay requests with different roles/tokens.
-5. **Authentication & authorization testing (the highest-value area given the Known Limitations above):**
-   - Register a `candidate` and a `recruiter` account (or use the seeded ones). Use Burp/Postman to call recruiter-only or admin-only routes (e.g. `PUT /assessments/:id/make-live`, `DELETE /assessments/:id`) with a candidate's JWT and confirm you get `401/403`.
-   - **IDOR / ownership checks:** as `attacker@test.com`, try to `GET`/`PUT` a submission or assessment that belongs to `candidate@test.com` or another recruiter, referencing this README's documented gap ("no ownership check on assessment edit/delete").
-   - **Privilege/field tampering:** as a candidate, try `PUT /submissions/:id` with a modified `totalScore` or `status` field, confirming the documented self-grading issue.
-   - Check JWT handling: expired tokens, tampered signatures, and tokens for a deleted/disabled user should all be rejected.
-6. **Input validation / injection testing** — since inputs go through Zod schemas and Mongoose (not raw SQL), focus `sqlmap`-style testing less and instead use Burp/ZAP to send malformed JSON, oversized payloads, NoSQL-operator injection attempts (e.g. `{"$gt": ""}` in login fields), and XSS payloads in free-text fields (assessment title/description) to confirm they're rejected or safely escaped on render.
-7. **Rate limiting verification** — script repeated `POST /login` and `POST /register` calls (e.g. with `curl` in a loop, or Burp Intruder) to confirm the documented 8/15min and 10/hour limits actually trigger `429` responses.
-8. **CORS testing** — send requests with `Origin` headers outside the allowed list (see `CORS_ORIGIN` and the Vercel-preview allowlist in `src/app.js`) and confirm they're rejected.
-9. **Dependency audit** — `npm audit` in both `client/` and `server/` to catch known-CVE packages before demo/deploy.
-10. **Directory/file exposure** — `gobuster dir -u http://localhost:3000 -w <wordlist>` to confirm no unintended static files, `.env`, or `.git` directory are served.
-
-Log every finding against the [Known Limitations](#known-limitations) list above and the [Roadmap](#roadmap) below — most of the interesting "vulnerabilities" you'll find in this app are already tracked there by design, since this was built and documented for a hackathon under time pressure.
-
-## Roadmap
-
-- [ ] Restrict which fields a candidate can set via `PUT /submissions/:id` (server-side scoring only)
-- [ ] Include `recruiter` in the bypass check for `GET /assessments/:id`, and let creators see their own answer keys
-- [ ] Add ownership checks to assessment update/delete
-- [ ] Move code execution server-side (proxy or re-verify Wandbox results before persisting)
-- [ ] Scope Socket.io events to relevant users/rooms
-- [ ] Add refresh-token support and an admin-seeding script
-- [ ] Add security headers (e.g. `helmet`) and a Content-Security-Policy
-- [ ] Move rate limiting to a shared store (e.g. Redis) for multi-instance deployments
-- [ ] Add client-side automated tests
-
 ## Team
 
 **Team Zeus** — System Siege
 
 | Name | Role |
 |---|---|
-| _Varun_ | _Leader / Backend Developer_ |
+| _Varun M_ | _Leader / Backend Developer_ |
 | _Ponnu Raj_ | _Backend Developer / Frontend Developer_ |
-| _Akash Raj_ | _Backend Developer / Frontend Developer_ |
+| _Aakash Raj_ | _Backend Developer / Frontend Developer_ |
 | _Krishsudharsun_ | _Security Developer / Tester_ |
 
 _Add team member names and contact details before final submission._
