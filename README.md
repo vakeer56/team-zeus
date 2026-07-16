@@ -176,3 +176,4 @@ The following accounts are pre-seeded and available for evaluation:
 Limitations:
 - Sending reset password is not possible in a site hosted with render.
 - Hence Forget password feature and change email verification is not possible.
+- No Admin Provisioning: While the schema and authorization checks support an admin role, there is no way to create an admin account via the registration API or seed scripts. It must be manually        edited in the MongoDB database.
