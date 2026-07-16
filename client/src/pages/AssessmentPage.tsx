@@ -67,6 +67,7 @@ const pythonTemplate = `class Solution:
 
 interface Question {
   id: string;
+  dbId?: string;
   title: string;
   type: 'mcq' | 'coding';
   points: number;
@@ -323,7 +324,7 @@ export const AssessmentPage: React.FC = () => {
       });
 
       const formattedAnswers = questions.map(q => ({
-        questionId: q.id.includes('-') ? "6a588dfb315654fbef121e04" : q.id, // safe ObjectID fallback if mock format
+        questionId: q.dbId || (q.id.includes('-') ? "6a588dfb315654fbef121e04" : q.id), // use dbId if available
         answer: q.type === 'mcq' ? String(q.selectedOption ?? '') : q.starterCode || '',
         isCorrect: q.type === 'mcq' ? (q.selectedOption === q.correctOptionIndex) : false,
         scoreAwarded: q.type === 'mcq' ? (q.selectedOption === q.correctOptionIndex ? q.points : 0) : 0
@@ -389,6 +390,7 @@ export const AssessmentPage: React.FC = () => {
             const isMcq = String(q.type).toLowerCase() === 'mcq';
             return {
               id: isMcq ? `mcq-${idx}` : `coding-${idx}`,
+              dbId: q._id,
               title: `${idx + 1}. ${isMcq ? 'Multiple Choice' : 'Sandbox Assignment'}`,
               type: isMcq ? 'mcq' : 'coding' as any,
               points: q.marks || (isMcq ? 10 : 20),

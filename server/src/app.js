@@ -10,6 +10,7 @@ const assessmentRoutes = require('./routes/assessment.routes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const proctorRoutes = require('./routes/proctorRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const plagiarismRoutes = require('./routes/plagiarism.routes');
 const ApiError = require('./utils/ApiError');
 
 const app = express();
@@ -56,6 +57,7 @@ app.use(assessmentRoutes);
 app.use('/submissions', submissionRoutes);
 app.use('/proctor', proctorRoutes);
 app.use('/reports', reportRoutes);
+app.use('/api/plagiarism', plagiarismRoutes);
 
 app.get('/', (_req, res) => res.send('app is alive'));
 

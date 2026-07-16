@@ -25,12 +25,13 @@ exports.startSubmission = async (req, res, next) => {
     // Check if candidate already has a submission for this test
     let submission = await Submission.findOne({ candidateId, assessmentId });
     if (submission) {
-      // Resume existing submission
-      return res.status(200).json({
-        success: true,
-        message: "Resuming existing assessment session",
-        submission
-      });
+      if (submission.status === "disqualified") {
+        return res.status(403).json({ success: false, message: "This assessment session is locked due to security/proctoring violations." });
+      }
+
+      // Delete previous attempt details (submission + proctor logs) to allow starting fresh (2nd/3rd retry)
+      await Submission.deleteOne({ _id: submission._id });
+      await ProctorEvent.deleteMany({ submissionId: submission._id });
     }
 
     // Create a new submission
@@ -69,8 +70,51 @@ exports.updateSubmission = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "Unauthorized submission access" });
     }
 
-    if (answers) submission.answers = answers;
-    if (totalScore !== undefined) submission.totalScore = totalScore;
+    let resolvedAnswers = answers || submission.answers;
+    let resolvedScore = totalScore !== undefined ? totalScore : submission.totalScore;
+
+    // Server-side MCQ Grading on submission
+    if (status === "submitted" && resolvedAnswers) {
+      const assessment = await Assessment.findById(submission.assessmentId);
+      if (assessment) {
+        let mcqScore = 0;
+        let mcqMax = 0;
+        let codingScore = 0;
+        let codingMax = 0;
+
+        resolvedAnswers = resolvedAnswers.map(ans => {
+          const dbQuestion = assessment.questions.find(q => q._id.toString() === ans.questionId.toString());
+          if (dbQuestion) {
+            if (dbQuestion.type === 'MCQ') {
+              mcqMax += dbQuestion.marks;
+              const isCorrect = parseInt(ans.answer) === dbQuestion.correctOptionIndex;
+              const scoreAwarded = isCorrect ? dbQuestion.marks : 0;
+              if (isCorrect) {
+                mcqScore += dbQuestion.marks;
+              }
+              return {
+                ...ans,
+                isCorrect,
+                scoreAwarded
+              };
+            } else if (dbQuestion.type === 'CODE') {
+              codingMax += dbQuestion.marks;
+              codingScore += ans.scoreAwarded || 0;
+            }
+          }
+          return ans;
+        });
+
+        // Compute overall average percentage score
+        const mcqPercentage = mcqMax > 0 ? (mcqScore / mcqMax) * 100 : 100;
+        const codingPercentage = codingMax > 0 ? (codingScore / codingMax) * 100 : 100;
+        
+        resolvedScore = Math.round((mcqMax > 0 && codingMax > 0) ? (mcqPercentage + codingPercentage) / 2 : (mcqMax > 0 ? mcqPercentage : codingPercentage));
+      }
+    }
+
+    if (answers) submission.answers = resolvedAnswers;
+    submission.totalScore = resolvedScore;
     if (status) submission.status = status;
     if (aiReport) submission.aiReport = aiReport;
     

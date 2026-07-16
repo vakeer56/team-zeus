@@ -72,6 +72,11 @@ const register = async (req, res, next) => {
         const token = generateToken({
             id: user._id,
             role: user.role,
+            name: user.name,
+            email: user.email,
+            mobileNumber: user.mobileNumber || "",
+            age: user.age || null,
+            education: user.education || "",
         });
 
         res.status(201).json({
@@ -115,6 +120,11 @@ const login = async (req, res, next) => {
         const token = generateToken({
             id: user._id,
             role: user.role,
+            name: user.name,
+            email: user.email,
+            mobileNumber: user.mobileNumber || "",
+            age: user.age || null,
+            education: user.education || "",
         });
 
         res.status(200).json({
@@ -212,6 +222,11 @@ const updateProfile = async (req, res, next) => {
         const token = generateToken({
             id: user._id,
             role: user.role,
+            name: user.name,
+            email: user.email,
+            mobileNumber: user.mobileNumber || "",
+            age: user.age || null,
+            education: user.education || "",
         });
 
         res.status(200).json({

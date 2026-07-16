@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Laptop, 
-  Mail, 
-  Lock, 
-  User, 
-  Terminal, 
-  Eye, 
-  EyeOff, 
-  ShieldCheck, 
+import {
+  Laptop,
+  Mail,
+  Lock,
+  User,
+  Terminal,
+  Eye,
+  EyeOff,
+  ShieldCheck,
   ArrowRight,
   Phone,
   Calendar,
@@ -20,12 +20,12 @@ import { apiUrl } from '../config/api';
 export const CandidateLoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
-  
+
   // Basic states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   // Custom schema fields for candidate signup
   const [mobileNumber, setMobileNumber] = useState('');
   const [age, setAge] = useState<number | ''>('');
@@ -131,10 +131,10 @@ export const CandidateLoginPage: React.FC = () => {
 
       {/* Centered Wrapper to Prevent Viewport Stretch */}
       <div className="max-w-6xl w-full mx-auto flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24 z-10">
-        
+
         {/* Left Side: Secure Sign In Form */}
         <div className="w-full max-w-md space-y-6 animate-fade-in shrink-0">
-          
+
           {/* Laptop Icon Badge */}
           <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
             <Laptop className="w-5 h-5 text-white" />
@@ -146,8 +146,8 @@ export const CandidateLoginPage: React.FC = () => {
               {isSignUp ? 'Create Exam Profile' : 'Secure Sign In'}
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed">
-              {isSignUp 
-                ? 'Sign up to register your candidate profile.' 
+              {isSignUp
+                ? 'Sign up to register your candidate profile.'
                 : 'Enter your credentials to access your secure exam environment or dashboard.'}
             </p>
           </div>
@@ -157,18 +157,16 @@ export const CandidateLoginPage: React.FC = () => {
             <button
               type="button"
               onClick={() => { setIsSignUp(false); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                !isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${!isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
             >
               Sign In
             </button>
             <button
               type="button"
               onClick={() => { setIsSignUp(true); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
             >
               Register Candidate
             </button>
@@ -317,7 +315,6 @@ export const CandidateLoginPage: React.FC = () => {
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
-                    <a href="#" className="text-[10px] text-indigo-400 hover:underline font-semibold">Forgot password?</a>
                   </div>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
@@ -378,7 +375,7 @@ export const CandidateLoginPage: React.FC = () => {
 
         {/* Right Side: Proctor telemetry panels */}
         <div className="hidden lg:flex flex-col w-full max-w-md space-y-6 shrink-0">
-          
+
           {/* Active Integrity Proctor Card */}
           <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
             <div className="flex items-center justify-between">
@@ -388,13 +385,13 @@ export const CandidateLoginPage: React.FC = () => {
               </div>
               <span className="px-2 py-0.5 rounded-full text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">Shield Active</span>
             </div>
-            
+
             <div className="flex gap-5 items-center border-t border-slate-900 pt-4">
               {/* Telemetry eye graphic */}
               <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner text-indigo-400 shrink-0">
                 <Eye className="w-7 h-7" />
               </div>
-              
+
               <div className="space-y-1 text-[11px] font-mono text-slate-400 flex-grow">
                 <div className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase mb-1">Real-time Telemetry</div>
                 <div className="flex justify-between items-center">
