@@ -14,8 +14,23 @@ const ApiError = require('./utils/ApiError');
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
+
+const defaultOrigins = [
+    'http://localhost:5173',
+    'https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app',
+];
+const configuredOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : defaultOrigins;
+
+app.use(
+    cors({
+        origin: configuredOrigins,
+        credentials: true,
+    }),
+);
+// ────────────────────────────────────────────────────────────────────────────
 app.use(authRoutes);
 app.use(assessmentRoutes);
 app.use('/submissions', submissionRoutes);
@@ -24,11 +39,7 @@ app.use('/reports', reportRoutes);
 
 app.get('/', (_req, res) => res.send('app is alive'));
 
-// ---- Global error-handling middleware ----
-// Must be registered AFTER routes so next(err) reaches it.
-// Without this, Express 5 handles errors with its own HTML response
-// and never uses ApiError.statusCode.
-// eslint-disable-next-line no-unused-vars
+
 app.use((err, _req, res, _next) => {
     const status = err.statusCode || err.status || 500;
     const message = err.message || 'Internal Server Error';

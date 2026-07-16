@@ -1,5 +1,4 @@
 const express = require("express");
-const jwt = require("jsonwebtoken");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const {
     register,
@@ -9,34 +8,9 @@ const {
     updateProfile,
     createRecruiter,
 } = require("../controllers/auth.controller");
-const ApiError = require("../utils/ApiError");
+const { authenticate, authorize } = require("../middleware/authenticate");
 
 const router = express.Router();
-
-const authenticate = (req, res, next) => {
-    try {
-        const authHeader = req.headers.authorization;
-
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            throw new ApiError(401, "Unauthorized");
-        }
-
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        req.user = decoded;
-        next();
-    } catch (err) {
-        next(err);
-    }
-};
-
-const requireRecruiter = (req, res, next) => {
-    if (!req.user || req.user.role !== 'recruiter') {
-        return res.status(403).json({ success: false, message: "Recruiter privilege required." });
-    }
-    next();
-};
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -75,6 +49,6 @@ router.post("/login", loginLimiter, login);
 router.get("/me", authenticate, getMe);
 router.get("/verify-email/:token", verifyEmail);
 router.put("/update-profile", authenticate, updateProfile);
-router.post("/create-recruiter", authenticate, requireRecruiter, createRecruiter);
+router.post("/create-recruiter", authenticate, authorize("recruiter"), createRecruiter);
 
 module.exports = router;

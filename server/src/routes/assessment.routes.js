@@ -1,38 +1,45 @@
-const express = require('express');
-const Assessment = require('../models/assessment.model');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const express = require("express");
+const Assessment = require("../models/assessment.model");
+const { authenticate, authorize } = require("../middleware/authenticate");
+const validateRequestBody = require("../middleware/validateRequestBody");
+const {
+    createAssessment,
+    getAssessments,
+    getAssessmentById,
+    updateAssessment,
+    deleteAssessment,
+    createAssessmentSchema,
+    updateAssessmentSchema,
+} = require("../controllers/assessment.controller");
+
 const router = express.Router();
 
-// Create Assessment (Recruiter/Admin Only)
-router.post('/', async (req, res, next) => {
+// Create Assessment
+router.post(
+    "/assessments",
+    authenticate,
+    authorize("admin", "recruiter"),
+    validateRequestBody(createAssessmentSchema),
+    createAssessment
+);
+
+// Get Assessments
+router.get("/assessments", authenticate, async (req, res, next) => {
   try {
-    const { title, description, durationMinutes, questions, startTime, endTime, createdBy } = req.body;
-    
-    // Fallback creator ID if not authenticated
-    const creatorId = createdBy || "6a588dfb315654fbef121e04";
-
-    const newAssessment = await Assessment.create({
-      title,
-      description: description || '',
-      createdBy: creatorId,
-      durationMinutes: durationMinutes || 60,
-      questions: questions || [
-        { type: "mcq", text: "2+2?", marks: 1, options: ["3", "4"], correctOptionIndex: 1 }
-      ],
-      startTime: startTime || new Date(),
-      endTime: endTime || new Date(Date.now() + 3600 * 1000 * 24), // 24 hours from now
-      isActive: true
-    });
-
-    // Real-time broadcast using Socket.io when assessment goes live
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('assessment_created', newAssessment);
+    // If the requester is candidate, only show published ones. If recruiter/admin, show all.
+    let query = {};
+    if (req.user.role === "candidate") {
+      query = {
+        $or: [
+          { status: "published" },
+          { isActive: true }
+        ]
+      };
     }
-
-    res.status(201).json({
+    const assessments = await Assessment.find(query).sort({ createdAt: -1 });
+    res.status(200).json({
       success: true,
-      assessment: newAssessment
+      assessments
     });
   } catch (err) {
     next(err);
@@ -40,7 +47,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Toggle Active / Make Live
-router.put('/:id/make-live', async (req, res, next) => {
+router.put('/assessments/:id/make-live', authenticate, authorize("admin", "recruiter"), async (req, res, next) => {
   try {
     const { id } = req.params;
     const assessment = await Assessment.findById(id);
@@ -49,9 +56,10 @@ router.put('/:id/make-live', async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Assessment not found" });
     }
 
-    assessment.isActive = true;
+    assessment.status = "published";
     await assessment.save();
 
+    // Broadcast Socket.io event
     const io = req.app.get('io');
     if (io) {
       io.emit('assessment_created', assessment);
@@ -67,22 +75,21 @@ router.put('/:id/make-live', async (req, res, next) => {
   }
 });
 
-// Get all Assessments
-router.get('/', async (req, res, next) => {
-  try {
-    const assessments = await Assessment.find({
-      $or: [
-        { status: "published" },
-        { isActive: true }
-      ]
-    }).sort({ createdAt: -1 });
-    res.status(200).json({
-      success: true,
-      assessments
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+router.get("/assessments/:id", authenticate, getAssessmentById);
+
+router.put(
+    "/assessments/:id",
+    authenticate,
+    authorize("admin", "recruiter"),
+    validateRequestBody(updateAssessmentSchema),
+    updateAssessment
+);
+
+router.delete(
+    "/assessments/:id",
+    authenticate,
+    authorize("admin", "recruiter"),
+    deleteAssessment
+);
 
 module.exports = router;

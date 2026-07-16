@@ -1,36 +1,74 @@
+/**
+ * src/middleware/authenticate.js
+ *
+ * Canonical JWT-verification middleware for the entire application.
+ * All route files must import from here — the old auth.js and the
+ * inline copy inside auth.routes.js have been removed.
+ *
+ * Exports
+ * ───────
+ *  authenticate          – verifies the Bearer token, sets req.user,
+ *                          and forwards errors to the global error handler
+ *                          via next(err) so that no route file needs to
+ *                          handle auth error shapes itself.
+ *  authorize(...roles)   – RBAC guard; must come after authenticate.
+ */
+
 const jwt = require("jsonwebtoken");
 const ApiError = require("../utils/ApiError");
 
-const authenticate = (req, res, next) => {
+/**
+ * Verify the Authorization: Bearer <token> header.
+ * On success: sets req.user = decoded payload and calls next().
+ * On failure: calls next(err) with an ApiError so the global error
+ *             handler in src/app.js sends the response consistently.
+ */
+const authenticate = (req, _res, next) => {
     try {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            throw new ApiError(401, "Unauthorized");
+            return next(new ApiError(401, "Unauthorized"));
         }
 
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         if (!decoded || typeof decoded !== "object") {
-            throw new ApiError(401, "Unauthorized");
+            return next(new ApiError(401, "Unauthorized"));
         }
 
         req.user = decoded;
-        next();
+        return next();
     } catch (err) {
-        if (err instanceof ApiError) {
-            return res.status(err.statusCode).json({ success: false, message: err.message });
+        // jwt.verify throws JsonWebTokenError, TokenExpiredError, NotBeforeError.
+        // Wrap them all in a 401 ApiError so the global handler shapes the
+        // response identically regardless of which JWT error was raised.
+        if (
+            err.name === "TokenExpiredError" ||
+            err.name === "JsonWebTokenError" ||
+            err.name === "NotBeforeError"
+        ) {
+            return next(new ApiError(401, "Unauthorized"));
         }
 
-        if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError" || err.name === "NotBeforeError") {
-            return res.status(401).json({ success: false, message: "Unauthorized" });
-        }
-
-        return res.status(500).json({ success: false, message: "Internal server error" });
+        // Unexpected error (e.g. bad JWT_SECRET config) — let the global
+        // handler return 500 while logging the real cause server-side.
+        return next(err);
     }
 };
 
-module.exports = authenticate;
+/**
+ * Role-based access control guard.
+ * Must be placed after authenticate in the middleware chain.
+ *
+ * @param  {...string} roles  – allowed roles, e.g. authorize("admin")
+ */
+const authorize = (...roles) => (req, _res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+        return next(new ApiError(403, "Forbidden"));
+    }
+    return next();
+};
 
-// test comment
+module.exports = { authenticate, authorize };

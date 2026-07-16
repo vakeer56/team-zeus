@@ -1,28 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const { getAiReport, generateAiReport } = require("../controllers/aiReportController");
-const { 
-  startSubmission, 
-  updateSubmission, 
-  getSubmissions, 
-  getSubmissionDetails 
+const {
+    startSubmission,
+    updateSubmission,
+    getSubmissions,
+    getSubmissionDetails,
 } = require("../controllers/submissionController");
-const { requireAuth } = require("../middleware/auth");
+const { authenticate } = require("../middleware/authenticate");
 
 // List all submissions (recruiter or own)
-router.get("/", requireAuth, getSubmissions);
+router.get("/", authenticate, getSubmissions);
 
 // Start a new submission
-router.post("/", requireAuth, startSubmission);
+router.post("/", authenticate, startSubmission);
 
 // View single submission detail
-router.get("/:id", requireAuth, getSubmissionDetails);
+router.get("/:id", authenticate, getSubmissionDetails);
 
 // Update answers / submit assessment
-router.put("/:id", requireAuth, updateSubmission);
+router.put("/:id", authenticate, updateSubmission);
 
-// Legacy AI report routes
-router.get("/:id/ai-report", requireAuth, getAiReport);
-router.post("/:id/ai-report/generate", requireAuth, generateAiReport);
+// AI report routes
+router.get("/:id/ai-report", authenticate, getAiReport);
+router.post("/:id/ai-report/generate", authenticate, generateAiReport);
 
 module.exports = router;
