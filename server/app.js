@@ -1,74 +1,55 @@
+/**
+ * app.js  — Production entry point.
+ *
+ * This file is intentionally thin:
+ *   1. Load env vars
+ *   2. Connect to MongoDB
+ *   3. Start listening (with Socket.io attached to the HTTP server)
+ *
+ * All route wiring, middleware registration, and the global error
+ * handler live in src/app.js (the single source of truth), which is
+ * also imported directly by the test suite.
+ */
+
+'use strict';
+
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
+
 const http = require('http');
 const { Server } = require('socket.io');
-
-const authRoutes = require('./src/routes/auth.routes');
-const assessmentRoutes = require('./src/routes/assessment.routes');
-const submissionRoutes = require('./src/routes/submissionRoutes');
-const proctorRoutes = require('./src/routes/proctorRoutes');
-const reportRoutes = require('./src/routes/reportRoutes');
-const ApiError = require('./src/utils/ApiError');
+const mongoose = require('mongoose');
+const app = require('./src/app');
 
 const PORT = process.env.PORT || 3000;
-const app = express();
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+    cors: {
+        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) : [],
+        methods: ['GET', 'POST'],
+    },
 });
 
-// Expose Socket.io instance on app
+// Expose Socket.io instance so route handlers can emit events via req.app.get('io')
 app.set('io', io);
 
 io.on('connection', (socket) => {
-  console.log('Socket client connected:', socket.id);
-  socket.on('disconnect', () => {
-    console.log('Socket client disconnected:', socket.id);
-  });
-});
-
-app.use(cors());
-app.use(express.json());
-
-// Routes mounting
-app.use('/assessments', assessmentRoutes);
-app.use('/submissions', submissionRoutes);
-app.use('/proctor', proctorRoutes);
-app.use('/reports', reportRoutes);
-app.use(authRoutes);
-
-// Global Error Handler
-app.use((err, req, res, next) => {
-    if (err instanceof ApiError) {
-        return res.status(err.statusCode).json({ success: false, message: err.message });
-    }
-    console.error("Express Error Handler:", err);
-    const status = err.statusCode || err.status || 500;
-    const message = err.message || 'Internal server error';
-    return res.status(status).json({
-        success: false,
-        message: status === 500 ? 'Internal server error' : message
+    console.log('Socket client connected:', socket.id);
+    socket.on('disconnect', () => {
+        console.log('Socket client disconnected:', socket.id);
     });
 });
 
-mongoose.connect(process.env.DB_URL)
-    .then(() => console.log("connected to the db...."))
-    .catch((err) => console.log(err));
-
-app.get('/', (req, res) => {
-    res.send('app is alive');
-});
-
-if (require.main === module) {
-    server.listen(PORT, () => {
-        console.log(`server is running on port ${PORT}...`);
+mongoose
+    .connect(process.env.DB_URL)
+    .then(() => {
+        console.log('Connected to the database.');
+        server.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}.`);
+        });
+    })
+    .catch((err) => {
+        console.error('Database connection failed:', err);
+        process.exit(1);
     });
-}
-
-module.exports = app;

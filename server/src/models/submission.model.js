@@ -33,24 +33,6 @@ const answerSchema = new mongoose.Schema(
   { _id: false },
 );
 
-const proctorEventSchema = new mongoose.Schema(
-  {
-    type: {
-      type: String,
-      enum: [
-        "tab_switch",
-        "window_blur",
-        "paste",
-        "copy",
-        "right_click",
-        "fullscreen_exit",
-      ],
-      required: true,
-    },
-    timestamp: { type: Date, default: Date.now },
-  },
-  { _id: false },
-);
 
 const riskFlagSchema = new mongoose.Schema(
   {
@@ -75,7 +57,6 @@ const submissionSchema = new mongoose.Schema(
     },
     answers: [answerSchema],
     totalScore: { type: Number, default: 0 },
-    proctorLog: { events: [proctorEventSchema] },
     aiReport: {
       riskScore: { type: Number, default: 0, min: 0, max: 100 },
       flags: [riskFlagSchema],

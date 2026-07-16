@@ -16,6 +16,22 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// ── CORS ────────────────────────────────────────────────────────────────────
+// CORS_ORIGIN must be set explicitly in the environment — no wildcard default.
+// Example .env entry:  CORS_ORIGIN=http://localhost:5173
+// For multiple origins separate them with commas:
+//   CORS_ORIGIN=https://app.example.com,https://staging.example.com
+if (process.env.CORS_ORIGIN) {
+    const allowedOrigins = process.env.CORS_ORIGIN.split(',').map((o) => o.trim());
+    app.use(
+        cors({
+            origin: allowedOrigins,
+            credentials: true,
+        }),
+    );
+}
+// ────────────────────────────────────────────────────────────────────────────
 app.use(authRoutes);
 app.use(assessmentRoutes);
 app.use('/submissions', submissionRoutes);
