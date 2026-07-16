@@ -35,7 +35,7 @@ export const CandidateLoginPage: React.FC = () => {
         }
 
         // 2. Call backend register route
-        const response = await fetch("http://localhost:3000/register", {
+        const response = await fetch("https://team-zeus.onrender.com/register", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -60,7 +60,7 @@ export const CandidateLoginPage: React.FC = () => {
       } else {
         // --- SIGN IN / LOGIN FLOW ---
         // 1. Call backend login route
-        const response = await fetch("http://localhost:3000/login", {
+        const response = await fetch("https://team-zeus.onrender.com/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"

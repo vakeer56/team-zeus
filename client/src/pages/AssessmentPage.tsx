@@ -257,7 +257,7 @@ export const AssessmentPage: React.FC = () => {
         return;
       }
       const test = JSON.parse(currentTestObj);
-      const response = await fetch("http://localhost:3000/submissions", {
+      const response = await fetch("https://team-zeus.onrender.com/submissions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -286,7 +286,7 @@ export const AssessmentPage: React.FC = () => {
       const currentSubId = submissionIdRef.current;
       if (!currentSubId) return;
       const token = localStorage.getItem('evalix_auth_token');
-      await fetch(`http://localhost:3000/proctor/submissions/${currentSubId}/proctor-event`, {
+      await fetch(`https://team-zeus.onrender.com/proctor/submissions/${currentSubId}/proctor-event`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -340,7 +340,7 @@ export const AssessmentPage: React.FC = () => {
         }
       };
 
-      await fetch(`http://localhost:3000/submissions/${currentSubId}`, {
+      await fetch(`https://team-zeus.onrender.com/submissions/${currentSubId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

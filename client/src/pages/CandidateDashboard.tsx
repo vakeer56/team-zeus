@@ -42,7 +42,7 @@ export const CandidateDashboard: React.FC = () => {
   const fetchAssessments = async () => {
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("http://localhost:3000/assessments", {
+      const response = await fetch("https://team-zeus.onrender.com/assessments", {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -71,7 +71,7 @@ export const CandidateDashboard: React.FC = () => {
     fetchAssessments();
 
     // 2. Setup Socket.io real-time connection to backend
-    const socket = io("http://localhost:3000");
+    const socket = io("https://team-zeus.onrender.com");
 
     socket.on("connect", () => {
       console.log("Connected to real-time proctor socket.");
@@ -121,7 +121,7 @@ export const CandidateDashboard: React.FC = () => {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("http://localhost:3000/update-profile", {
+      const response = await fetch("https://team-zeus.onrender.com/update-profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

@@ -66,7 +66,7 @@ export const RecruiterDashboard: React.FC = () => {
   const loadAssessments = async () => {
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("http://localhost:3000/assessments", {
+      const response = await fetch("https://team-zeus.onrender.com/assessments", {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -89,8 +89,8 @@ export const RecruiterDashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('evalix_auth_token');
       const url = selectedAssessmentId 
-        ? `http://localhost:3000/submissions?assessmentId=${selectedAssessmentId}` 
-        : `http://localhost:3000/submissions`;
+        ? `https://team-zeus.onrender.com/submissions?assessmentId=${selectedAssessmentId}` 
+        : `https://team-zeus.onrender.com/submissions`;
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -116,7 +116,7 @@ export const RecruiterDashboard: React.FC = () => {
     }
     loadAssessments();
 
-    const socket = io("http://localhost:3000");
+    const socket = io("https://team-zeus.onrender.com");
     socket.on("submission_updated", () => {
       loadSubmissions();
     });
@@ -201,7 +201,7 @@ export const RecruiterDashboard: React.FC = () => {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("http://localhost:3000/update-profile", {
+      const response = await fetch("https://team-zeus.onrender.com/update-profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -238,7 +238,7 @@ export const RecruiterDashboard: React.FC = () => {
     setIsRegisteringRecruiter(true);
     try {
       const token = localStorage.getItem('evalix_auth_token');
-      const response = await fetch("http://localhost:3000/create-recruiter", {
+      const response = await fetch("https://team-zeus.onrender.com/create-recruiter", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -430,7 +430,7 @@ export const RecruiterDashboard: React.FC = () => {
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('evalix_auth_token');
-                      const response = await fetch(`http://localhost:3000/assessments/${selectedAssessment._id}/make-live`, {
+                      const response = await fetch(`https://team-zeus.onrender.com/assessments/${selectedAssessment._id}/make-live`, {
                         method: 'PUT',
                         headers: {
                           'Authorization': `Bearer ${token}`

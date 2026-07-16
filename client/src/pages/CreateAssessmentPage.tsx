@@ -153,7 +153,7 @@ export const CreateAssessmentPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:3000/assessments", {
+      const response = await fetch("https://team-zeus.onrender.com/assessments", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
