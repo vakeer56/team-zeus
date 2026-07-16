@@ -168,7 +168,9 @@ The following accounts are pre-seeded and available for evaluation:
 
 | Name | Role |
 |---|---|
-| Varun | Team Lead / Backend Developer |
-| Ponnu Raj | Backend Developer / Frontend Developer |
-| Akash Raj | Backend Developer / Frontend Developer |
-| Krishsudharsun | Security Developer / Tester |
+| _Varun M_ | _Leader / Backend Developer_ |
+| _Ponnu Raj_ | _Backend Developer / Frontend Developer_ |
+| _Aakash Raj_ | _Backend Developer / Frontend Developer_ |
+| _Krishsudharsun_ | _Security Developer / Tester_ |
+
+_Add team member names and contact details before final submission._
