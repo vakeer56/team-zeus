@@ -1,50 +1,32 @@
-# Evalix
+# Evalix — Proctored Assessment Platform
 
 A proctored online assessment platform for technical hiring. Recruiters publish timed MCQ and coding assessments; candidates take them in a Monaco-powered code editor while the platform passively logs integrity signals (tab switches, copy/paste, fullscreen exits) and generates an AI-assisted risk report from that activity.
 
-**Team:** Team Zeus
-**Repository:** https://github.com/vakeer56/team-zeus
-**Built for:** System Siege — Systems-Focused Engineering Hackathon
+Evalix is a secure, AI-powered technical assessment platform. Recruiters create and publish timed evaluations; candidates complete them in an isolated sandbox environment under continuous integrity monitoring.
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
 - [Environment Variables](#environment-variables)
 - [Running the Project](#running-the-project)
 - [Running Tests](#running-tests)
-- [Seeded Login Credentials](#seeded-login-credentials)
-- [API Reference](#api-reference)
-- [Data Models](#data-models)
-- [Real-Time Events (Socket.io)](#real-time-events-socketio)
-- [Known Limitations](#known-limitations)
-- [Security Self-Testing Guide](#security-self-testing-guide)
-- [Roadmap](#roadmap)
+- [Login Credentials](#login-credentials)
 - [Team](#team)
 
 ---
 
-## Overview
-
-Evalix has three user roles — **admin**, **recruiter**, and **candidate** — and two independently deployed pieces:
-
-- **Client** (`/client`): a React SPA with separate login flows for candidates and recruiters, a recruiter dashboard for creating/publishing assessments and reviewing submissions, and a candidate-facing timed assessment page with a Monaco code editor and live proctoring hooks.
-- **Server** (`/server`): a REST API (Express) backed by MongoDB, with JWT authentication, Zod request validation, rate limiting, Socket.io for live dashboard updates, and an AI-report service that scores proctoring activity via Gemini and Groq.
-
 ## Tech Stack
 
-**Frontend (`/client`)**
+**Frontend**
 
 | Category | Technology |
 |---|---|
 | Framework | React 19 + TypeScript |
-| Build tool | Vite 8 |
+| Build Tool | Vite 8 |
 | Styling | Tailwind CSS v4 |
 | Routing | React Router v7 |
 | State management | Zustand |
@@ -57,114 +39,29 @@ Evalix has three user roles — **admin**, **recruiter**, and **candidate** — 
 | Notifications | react-hot-toast |
 | Linting | oxlint |
 
-**Backend (`/server`)**
+**Backend**
 
 | Category | Technology |
 |---|---|
-| Runtime / framework | Node.js + Express 5 |
+| Runtime | Node.js + Express 5 |
 | Database | MongoDB via Mongoose |
-| Auth | JSON Web Tokens (`jsonwebtoken`) + bcrypt password hashing |
+| Auth | JWT + bcrypt |
 | Validation | Zod |
-| Rate limiting | express-rate-limit |
 | Real-time | Socket.io |
-| AI risk scoring | Google Gemini API + Groq API (combined) |
+| AI Analysis | Google Gemini (`gemini-2.5-flash`) + Groq (`llama-3.3-70b-versatile`) |
 | Testing | Jest + Supertest + mongodb-memory-server |
 
-**Deployment**
-- `client/vercel.json` deploys `/client` as a static SPA build (with a catch-all rewrite to `index.html`).
-- The client resolves its API base URL at runtime via `VITE_API_URL`, falling back to `http://localhost:3001` on localhost or `https://team-zeus.onrender.com` otherwise (`client/src/config/api.ts`).
-- The server is deployed separately (e.g. Render/Railway) — it is not part of the Vercel build.
-
-## Architecture
-
-```
-                 ┌──────────────────────────┐
-                 │   Client (Vite, React)    │
-                 │  candidate & recruiter UI │
-                 └─────────────┬─────────────┘
-                                │ fetch() + Socket.io — JWT Bearer token
-                                ▼
-                 ┌──────────────────────────┐
-                 │    Server (Express 5)     │
-                 │ ──────────────────────── │
-                 │ auth · assessments        │
-                 │ submissions · proctoring  │
-                 │ reports (AI risk scoring) │
-                 └──────┬─────────────┬──────┘
-                        │             │
-              Mongoose  │             │  Gemini + Groq APIs
-                        ▼             ▼
-                 ┌──────────────┐  ┌──────────────────┐
-                 │   MongoDB     │  │  AI report service │
-                 │ Users/Assess- │  │ (risk score+flags) │
-                 │ ments/Submis- │  └──────────────────┘
-                 │ sions/Proctor │
-                 │ Events        │
-                 └──────────────┘
-```
-
-## Project Structure
-
-```
-team-zeus/
-├── client/                        # React + Vite frontend
-│   ├── vercel.json                 # Deploys /client as a static build
-│   └── src/
-│       ├── components/             # Navbar, Footer
-│       ├── config/api.ts           # API_BASE_URL / apiUrl() helper
-│       ├── pages/
-│       │   ├── LandingPage.tsx
-│       │   ├── CandidateLoginPage.tsx
-│       │   ├── CandidateDashboard.tsx / RecruiterDashboard.tsx
-│       │   ├── CreateAssessmentPage.tsx
-│       │   ├── AddRecruiterPage.tsx
-│       │   ├── ProfilePage.tsx / RecruiterProfilePage.tsx
-│       │   └── AssessmentPage.tsx  # Timed test-taking UI + proctoring hooks
-│       ├── App.tsx                 # Route definitions
-│       └── main.tsx
-│
-└── server/                        # Express backend
-    ├── app.js                     # Entry point: DB connect + HTTP + Socket.io listen
-    ├── create-recruiter.js        # One-off script: seeds a recruiter account
-    ├── seed-assessment.js         # One-off script: seeds a sample assessment
-    ├── src/
-    │   ├── app.js                  # Express app (routes/middleware), imported by tests
-    │   ├── config/db.js
-    │   ├── controllers/
-    │   │   ├── auth.controller.js
-    │   │   ├── assessment.controller.js
-    │   │   ├── submissionController.js
-    │   │   ├── proctorEventController.js
-    │   │   ├── reportController.js
-    │   │   └── aiReportController.js   # thin alias over reportController
-    │   ├── middleware/
-    │   │   ├── authenticate.js         # authenticate + authorize(...roles)
-    │   │   └── validateRequestBody.js  # generic Zod body validator
-    │   ├── models/
-    │   │   ├── user.model.js
-    │   │   ├── assessment.model.js
-    │   │   ├── submission.model.js
-    │   │   └── proctorEvent.model.js
-    │   ├── routes/
-    │   │   ├── auth.routes.js
-    │   │   ├── assessment.routes.js
-    │   │   ├── submissionRoutes.js
-    │   │   ├── proctorRoutes.js
-    │   │   └── reportRoutes.js
-    │   ├── services/aiReport.service.js  # Gemini + Groq risk-scoring calls
-    │   ├── validators/assessment.schema.js
-    │   ├── seed/scripts.js             # Guarded dev/test-only seed script
-    │   └── utils/                      # ApiError, jwt helpers, sanitizeAssessment
-    └── tests/                          # Jest + Supertest test suites
-```
+---
 
 ## Prerequisites
 
-- **Node.js** v20+ (confirmed working on Node 22)
+- **Node.js** v20+
 - **npm**
-- **MongoDB** — local instance (v6+) or a [MongoDB Atlas](https://www.mongodb.com/atlas) connection string
-- **Git**
-- API keys for **Gemini** and **Groq** if you want AI risk-report generation to work (optional for everything else)
+- **MongoDB** — local or [MongoDB Atlas](https://www.mongodb.com/atlas) connection string
+- **Gemini API Key** — [Google AI Studio](https://aistudio.google.com/)
+- **Groq API Key** — [Groq Console](https://console.groq.com/)
+
+---
 
 ## Installation & Setup
 
@@ -173,258 +70,97 @@ git clone https://github.com/vakeer56/team-zeus.git
 cd team-zeus
 ```
 
-### 1. Server
-
+### Backend
 ```bash
 cd server
 npm install
 ```
 
-Create `server/.env` — see [Environment Variables](#environment-variables).
-
-### 2. Client
-
+### Frontend
 ```bash
 cd ../client
 npm install
 ```
 
-Create `client/.env` (optional locally, **required for a production deploy**):
-
-```env
-VITE_API_URL=http://localhost:3000
-```
-
-If unset, the client falls back to `http://localhost:3001` on `localhost`, or `https://team-zeus.onrender.com` everywhere else — see `client/src/config/api.ts`. Set `VITE_API_URL` explicitly to match wherever your server is actually running/deployed.
-
-### 3. (Optional) Seed data
-
-```bash
-cd ../server
-node create-recruiter.js   # creates admin@recruiter.evalix.com
-node seed-assessment.js    # creates a sample published assessment
-```
+---
 
 ## Environment Variables
 
-Create `server/.env`:
+### `server/.env`
 
 ```env
 # MongoDB connection string (required)
-DB_URL=mongodb://localhost:27017/evalix
+DB_URL=your_mongodb_connection_string
 
-# Secret used to sign JWTs — use a long, random string in production (required)
-JWT_SECRET=replace-with-a-strong-random-secret
+# JWT signing secret — use a long, random string (required)
+JWT_SECRET=your_jwt_secret_key
 
-# Port the Express server listens on (optional, defaults to 3000)
+# Server port (optional, defaults to 3000)
 PORT=3000
 
-# Comma-separated list of allowed CORS origins (optional — falls back to
-# localhost:5173 and a hardcoded Vercel preview URL if unset)
+# Allowed CORS origins (comma-separated)
 CORS_ORIGIN=http://localhost:5173
 
-# Required only for AI proctoring-risk reports (POST /reports/submissions/:id/generate)
-GEMINI_API_KEY=
+# Google Gemini — AI risk report analysis
+GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
 
-GROQ_API_KEY=
+# Groq — LLM explanation service
+GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.3-70b-versatile
-
-# Only required if you run the guarded seed script (server/src/seed/scripts.js)
-# Must point at a DB name ending in "-dev" or "-test" as a safety guard
-SEED_DB_URL=mongodb://localhost:27017/evalix-dev
 ```
 
-Create `client/.env` (optional):
+### `client/.env`
 
 ```env
 VITE_API_URL=http://localhost:3000
 ```
 
-> Recruiter accounts are created automatically by `/register` when the email ends in `@recruiter.evalix.com`. All other emails register as `candidate`. There's no self-service `admin` signup — see [Known Limitations](#known-limitations).
+> **Never commit `.env` files.** Both `.gitignore` files already exclude them.
 
-**Never commit `.env` files.** Both `client/.gitignore` and `server/.gitignore` already exclude them.
+---
 
 ## Running the Project
 
 ### Backend
-
 ```bash
 cd server
-npm run dev     # nodemon app.js — auto-restarts on change
-# or
-npm start        # node app.js — single run
-```
-
-A healthy boot logs:
-```
-Connected to the database.
-Server is running on port 3000.
+npm run dev
 ```
 
 ### Frontend
-
 ```bash
 cd client
 npm run dev
 ```
 
-Vite serves the app at `http://localhost:5173` by default.
+The client is served at `http://localhost:5173` by default.
 
-### Production build (client)
-
-```bash
-cd client
-npm run build     # tsc -b && vite build
-npm run preview   # serve the production build locally
-```
+---
 
 ## Running Tests
 
-The server test suite uses Jest + Supertest against an in-memory MongoDB instance (`mongodb-memory-server`) — no running MongoDB or `.env` file is required, but the **first run needs internet access** to download the MongoDB binary.
-
 ```bash
 cd server
-npm test          # runs `jest --runInBand`
+npm test
 ```
 
-Current coverage includes auth (register/login/verify-email/rate-limiting), assessment CRUD + authorization, proctoring-event logging, AI report generation, and a dedicated security-tests suite.
+The suite runs against an in-memory MongoDB instance — no external database required.
 
-There is no automated test suite on the client yet.
+---
 
-## Seeded Login Credentials
+## Login Credentials
 
-These are created by the **optional** seed scripts above — they only exist in your own local/dev database once you run those scripts, and are **for local development and testing only**.
+The following accounts are pre-seeded and available for evaluation:
 
-| Role | Email | Password | Created by |
-|---|---|---|---|
-| Recruiter | `recruiter@recruiter.evalix.com` | `SecurePassword123` | `server/src/seed/scripts.js` |
-| Candidate | `venky@gmail.com` | `asdfghjkl;'` | `server/src/seed/scripts.js` |
-| Candidate | `attacker@test.com` | `password123` | `server/src/seed/scripts.js` (used to test ownership/authorization bugs) |
-
-There is no seeded `admin`-role account (see [Known Limitations](#known-limitations)); to test admin-only behavior, set a user's `role` field to `admin` directly in MongoDB.
-
-> ⚠️ **Do not reuse these credentials, or ship the seed scripts, in any publicly deployed instance.** Rotate `JWT_SECRET` and remove/disable the seed and create-recruiter scripts before a real deployment.
-
-## API Reference
-
-Base URL: `http://localhost:3000` (or your configured `VITE_API_URL`)
-
-### Auth — mounted at `/`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/register` | No | Registers a candidate, or a recruiter if the email ends in `@recruiter.evalix.com`. Rate-limited: 10/hour/IP. |
-| POST | `/login` | No | Returns a 15-minute JWT. Rate-limited: 8 attempts/15 min per IP+email. |
-| GET | `/verify-email/:token` | No | Verifies email via the token issued at registration. |
-| GET | `/me` | Yes | Returns the authenticated user's profile. |
-| PUT | `/update-profile` | Yes | Updates name/email/password for the authenticated user. |
-| POST | `/create-recruiter` | Yes (recruiter) | Lets an existing recruiter create another recruiter account (email must end in `@recruiter.evalix.com`). |
-
-### Assessments — mounted at `/`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/assessments` | admin, recruiter | Creates an assessment (`draft`/`published`/`archived`), validated against a strict Zod schema for MCQ/CODE question shapes. |
-| GET | `/assessments` | Yes | Candidates see only `published` (or legacy `isActive`) assessments; admins/recruiters see all. |
-| GET | `/assessments/:id` | Yes | Non-admin roles can only fetch it if `status === "published"` (see Known Limitations). |
-| PUT | `/assessments/:id/make-live` | admin, recruiter | Sets `status` to `published` and emits an `assessment_created` Socket.io event. |
-| PUT | `/assessments/:id` | admin, recruiter | Partial update of title/description/duration/difficulty/status/questions. |
-| DELETE | `/assessments/:id` | admin, recruiter | Deletes an assessment. |
-
-### Submissions — mounted at `/submissions`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/submissions` | Yes | Starts (or resumes) a candidate's submission for an assessment. |
-| GET | `/submissions` | Yes | Candidates see their own; recruiters see all (optionally filtered by `?assessmentId=`). |
-| POST | `/submissions/:id/reauthorize` | Yes | Re-authorizes a candidate to continue a submission. |
-| GET | `/submissions/:id` | Yes | Submission owner or a recruiter can view details + proctoring events. |
-| PUT | `/submissions/:id` | Yes (owner only) | Updates answers/score/status; emits `submission_updated`. |
-| GET | `/submissions/:id/ai-report` | Yes | Alias for `GET /reports/submissions/:id`. |
-| POST | `/submissions/:id/ai-report/generate` | Yes | Alias for `POST /reports/submissions/:id/generate`. |
-
-### Proctoring — mounted at `/proctor`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/proctor/submissions/:id/proctor-event` | candidate | Logs a proctoring event. Enforces ownership, `in_progress` status, and a 1 req/sec-per-submission rate limit. |
-
-### Reports — mounted at `/reports`
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/reports/submissions/:id` | admin, recruiter | Returns the stored AI risk report for a submission. |
-| POST | `/reports/submissions/:id/generate` | admin, recruiter | Aggregates proctoring events, calls Gemini + Groq, stores and returns a combined risk report. |
-
-All error responses follow `{ success: false, message: "..." }`.
-
-## Data Models
-
-**User** — `name`, `email` (unique), `password` (hashed, `select: false`), `role` (`admin` \| `recruiter` \| `candidate`), `isVerified`, `verificationToken`.
-
-**Assessment** — `title`, `description`, `duration`, `difficulty` (`easy`\|`medium`\|`hard`), `status` (`draft`\|`published`\|`archived`), `createdBy`, `questions[]` (MCQ: `options`, `correctOptionIndex`; CODE: `starterCode`, `language`, `sampleTestCases`, `hiddenTestCases`).
-
-**Submission** — `candidateId`, `assessmentId` (unique together), `answers[]` (per-question score + execution result/verdict), `totalScore`, `aiReport` (`riskScore`, `flags[]`, `generatedAt`), `status` (`in_progress`\|`submitted`\|`evaluated`\|`pending_reevaluation`).
-
-**ProctorEvent** — `submissionId`, `candidateId`, `eventType` (`tab_switch`, `window_blur`, `paste_attempt`, `copy_attempt`, `fullscreen_exit`, `multiple_faces_detected`, `suspicious_activity`), `metadata`, server-stamped `createdAt`.
-
-## Real-Time Events (Socket.io)
-
-The server attaches Socket.io to the same HTTP server and exposes it via `req.app.get('io')`.
-
-| Event | Emitted when | Payload |
+| Role | Email | Password |
 |---|---|---|
-| `assessment_created` | An assessment is made live (`PUT /assessments/:id/make-live`) | the updated assessment document |
-| `submission_updated` | A submission is updated (`PUT /submissions/:id`) | the updated submission document |
+| Recruiter | `recruiter@recruiter.evalix.com` | `SecurePassword123` |
+| Candidate | `venky@gmail.com` | `asdfghjkl;'` |
 
-Both events are broadcast to **all** connected clients (`io.emit`, not scoped to rooms) — any connected socket receives every update.
+> These accounts exist in the shared deployment database for demo and evaluation purposes.
 
-## Known Limitations
-
-Documented honestly, per the hackathon's submission guidelines:
-
-- **Candidates can self-report their own score:** `PUT /submissions/:id` only checks that the requester *owns* the submission — it doesn't restrict who may set `totalScore` or move `status` to `submitted`/`evaluated`. A candidate can currently grade their own attempt via the API.
-- **Recruiters can't view or manage their own draft assessments individually:** `GET /assessments/:id` only bypasses the `published`-only filter for `role === "admin"`; `recruiter` is not included, even though recruiters are the ones allowed to create and publish assessments.
-- **Recruiters can't see their own answer keys:** `sanitizeAssessment` strips `correctOptionIndex` and `hiddenTestCases` for every role except `admin`.
-- **No ownership check on assessment edit/delete:** any authenticated `admin` or `recruiter` can update or delete *any* assessment, not just ones they created.
-- **No code execution on the server:** Python code questions are compiled/run by calling the third-party Wandbox API directly **from the browser** (`AssessmentPage.tsx`), not through the backend. There's no server-side sandboxing, rate limiting, or result verification — a candidate could tamper with the client-reported result before it's sent to `PUT /submissions/:id`.
-- **Socket.io events are unscoped:** `assessment_created` and `submission_updated` are broadcast to every connected socket with no rooms/namespaces, so any logged-in client (candidate or recruiter) receives every other user's submission updates.
-- **No refresh-token flow:** JWTs expire after 15 minutes with no renewal mechanism.
-- **In-memory rate limiting:** login/register limiters and the proctoring-event limiter store state in-process, so they reset on restart and don't work correctly across multiple server instances.
-- **No admin account seeding:** `role: "admin"` exists in the schema and is used in several authorization checks, but nothing in `/register` or the seed scripts creates one — it must be set manually in the database.
-- **`GET /reports/submissions/:id` and `GET /submissions/:id/ai-report`** are two different URLs for the same underlying handler (`reportController.getReport`) — harmless, but worth knowing if calling the API directly.
-- **Client dev vs. prod default port mismatch:** `client/src/config/api.ts` defaults to `http://localhost:3001` on localhost, while the server defaults to port `3000`. Set `VITE_API_URL` explicitly, or align the two, to avoid confusion.
-
-## Security Self-Testing Guide
-
-This is a **checklist for testing your own local/dev deployment** of this app before a hackathon demo or a real deploy — not a general hacking tutorial. Only point these tools at hosts you own or are explicitly authorized to test (your own `localhost` instance, or a deployment you control). Scanning or attacking systems without authorization is illegal in most jurisdictions.
-
-**Suggested order, using tools already in Kali:**
-
-1. **Confirm scope and get the app running locally.** Start the server (`npm run dev`) and client (`npm run dev`), and only target those local addresses/ports.
-2. **Recon the running services** — `nmap -sV -p- localhost` to confirm which ports/services are actually exposed (Express on 3000, Vite on 5173, MongoDB on 27017 if local). Anything beyond client+server+DB shouldn't be listening.
-3. **Basic HTTP fingerprinting** — `nikto -h http://localhost:3000` and `nikto -h http://localhost:5173` to check for missing security headers (e.g. no `helmet`-style headers are currently set on the Express app), verbose error messages, and default files.
-4. **API endpoint enumeration** — since the API surface is fully documented above, load it into **Burp Suite** or **OWASP ZAP** as a manual test list rather than blind-fuzzing; use their repeater/intruder features to replay requests with different roles/tokens.
-5. **Authentication & authorization testing (the highest-value area given the Known Limitations above):**
-   - Register a `candidate` and a `recruiter` account (or use the seeded ones). Use Burp/Postman to call recruiter-only or admin-only routes (e.g. `PUT /assessments/:id/make-live`, `DELETE /assessments/:id`) with a candidate's JWT and confirm you get `401/403`.
-   - **IDOR / ownership checks:** as `attacker@test.com`, try to `GET`/`PUT` a submission or assessment that belongs to `candidate@test.com` or another recruiter, referencing this README's documented gap ("no ownership check on assessment edit/delete").
-   - **Privilege/field tampering:** as a candidate, try `PUT /submissions/:id` with a modified `totalScore` or `status` field, confirming the documented self-grading issue.
-   - Check JWT handling: expired tokens, tampered signatures, and tokens for a deleted/disabled user should all be rejected.
-6. **Input validation / injection testing** — since inputs go through Zod schemas and Mongoose (not raw SQL), focus `sqlmap`-style testing less and instead use Burp/ZAP to send malformed JSON, oversized payloads, NoSQL-operator injection attempts (e.g. `{"$gt": ""}` in login fields), and XSS payloads in free-text fields (assessment title/description) to confirm they're rejected or safely escaped on render.
-7. **Rate limiting verification** — script repeated `POST /login` and `POST /register` calls (e.g. with `curl` in a loop, or Burp Intruder) to confirm the documented 8/15min and 10/hour limits actually trigger `429` responses.
-8. **CORS testing** — send requests with `Origin` headers outside the allowed list (see `CORS_ORIGIN` and the Vercel-preview allowlist in `src/app.js`) and confirm they're rejected.
-9. **Dependency audit** — `npm audit` in both `client/` and `server/` to catch known-CVE packages before demo/deploy.
-10. **Directory/file exposure** — `gobuster dir -u http://localhost:3000 -w <wordlist>` to confirm no unintended static files, `.env`, or `.git` directory are served.
-
-Log every finding against the [Known Limitations](#known-limitations) list above and the [Roadmap](#roadmap) below — most of the interesting "vulnerabilities" you'll find in this app are already tracked there by design, since this was built and documented for a hackathon under time pressure.
-
-## Roadmap
-
-- [ ] Restrict which fields a candidate can set via `PUT /submissions/:id` (server-side scoring only)
-- [ ] Include `recruiter` in the bypass check for `GET /assessments/:id`, and let creators see their own answer keys
-- [ ] Add ownership checks to assessment update/delete
-- [ ] Move code execution server-side (proxy or re-verify Wandbox results before persisting)
-- [ ] Scope Socket.io events to relevant users/rooms
-- [ ] Add refresh-token support and an admin-seeding script
-- [ ] Add security headers (e.g. `helmet`) and a Content-Security-Policy
-- [ ] Move rate limiting to a shared store (e.g. Redis) for multi-instance deployments
-- [ ] Add client-side automated tests
+---
 
 ## Team
 
@@ -432,9 +168,7 @@ Log every finding against the [Known Limitations](#known-limitations) list above
 
 | Name | Role |
 |---|---|
-| _Varun_ | _Leader / Backend Developer_ |
-| _Ponnu Raj_ | _Backend Developer / Frontend Developer_ |
-| _Akash Raj_ | _Backend Developer / Frontend Developer_ |
-| _Krishsudharsun_ | _Security Developer / Tester_ |
-
-_Add team member names and contact details before final submission._
+| Varun | Team Lead / Backend Developer |
+| Ponnu Raj | Backend Developer / Frontend Developer |
+| Akash Raj | Backend Developer / Frontend Developer |
+| Krishsudharsun | Security Developer / Tester |
