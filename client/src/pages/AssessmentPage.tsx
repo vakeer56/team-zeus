@@ -385,17 +385,18 @@ export const AssessmentPage: React.FC = () => {
         const test = JSON.parse(rawTest);
         if (test && test.questions && test.questions.length > 0) {
           initialMappedQuestions = test.questions.map((q: any, idx: number) => {
-            const isMcq = q.type === 'mcq';
+            const isMcq = String(q.type).toLowerCase() === 'mcq';
             return {
               id: isMcq ? `mcq-${idx}` : `coding-${idx}`,
               title: `${idx + 1}. ${isMcq ? 'Multiple Choice' : 'Sandbox Assignment'}`,
-              type: q.type,
+              type: isMcq ? 'mcq' : 'coding' as any,
               points: q.marks || (isMcq ? 10 : 20),
               completed: false,
-              mcqQuestion: isMcq ? q.text : undefined,
+              mcqQuestion: isMcq ? (q.question || q.text) : undefined,
               options: isMcq ? q.options : undefined,
               starterCode: !isMcq ? q.starterCode : undefined,
-              testCases: !isMcq ? q.testCases : undefined
+              testCases: !isMcq ? (q.sampleTestCases || q.testCases) : undefined,
+              correctOptionIndex: q.correctOptionIndex
             };
           });
         }
