@@ -108,6 +108,18 @@ export const CandidateLoginPage: React.FC = () => {
           return;
         }
 
+        if (mobileNumber) {
+          const mobileRegex = /^[789]\d{9}$/;
+          if (!mobileRegex.test(mobileNumber)) {
+            toast.error("Mobile number must start with 7, 8, or 9 and contain exactly 10 digits.", {
+              duration: 5000,
+              style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+            });
+            setIsLoading(false);
+            return;
+          }
+        }
+
         const payload = {
           name,
           email,
