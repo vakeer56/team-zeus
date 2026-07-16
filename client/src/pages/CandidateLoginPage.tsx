@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Laptop, Mail, Lock, ArrowLeft, Terminal, Play, Video, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export const CandidateLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export const CandidateLoginPage: React.FC = () => {
   };
 
   const handleGoogleLogin = () => {
-    alert('Logging in with Google...');
+    toast.success('Redirecting to Google Secure SSO...');
   };
 
   return (

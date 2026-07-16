@@ -17,8 +17,14 @@ import {
   Monitor,
   Hourglass,
   Layers,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle,
+  HelpCircle,
+  Code2,
+  Lock,
+  Save
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import evalixLogoWithoutText from '../assets/evalix-logo-without-text.png';
 
 loader.config({
@@ -35,6 +41,69 @@ interface TestCase {
   status?: 'passed' | 'failed' | 'running' | 'idle';
   error?: string;
 }
+
+interface Question {
+  id: string;
+  title: string;
+  type: 'mcq' | 'coding';
+  points: number;
+  completed: boolean;
+  mcqQuestion?: string;
+  options?: string[];
+  selectedOption?: number; // 0-indexed index of selected option
+}
+
+const initialQuestions: Question[] = [
+  {
+    id: 'mcq-1',
+    title: '1. XSS & Clickjacking Shield',
+    type: 'mcq',
+    points: 20,
+    completed: false,
+    mcqQuestion: 'Which of the following response headers is designed to mitigate Cross-Site Scripting (XSS) and clickjacking vectors by enforcing strict origins for scripts, styles, and frames?',
+    options: [
+      'A) X-Content-Type-Options: nosniff',
+      'B) Strict-Transport-Security: max-age=31536000',
+      'C) Content-Security-Policy (CSP)',
+      'D) Access-Control-Allow-Origin: *'
+    ]
+  },
+  {
+    id: 'mcq-2',
+    title: '2. Python Shell Injection',
+    type: 'mcq',
+    points: 20,
+    completed: false,
+    mcqQuestion: 'Which of the following is considered the most secure way to run shell commands in Python to prevent OS Command Injection vulnerabilities?',
+    options: [
+      'A) Utilizing os.system("command " + input_param)',
+      'B) Executing subprocess.run(arguments_list, shell=False) with parameterized inputs',
+      'C) Spawning shells using os.popen() with sanitized variables',
+      'D) Feeding strings into the eval() interpreter dynamically'
+    ]
+  },
+  {
+    id: 'mcq-3',
+    title: '3. SameSite Cookie Directives',
+    type: 'mcq',
+    points: 20,
+    completed: false,
+    mcqQuestion: 'When configuring session cookies, what behavior does the SameSite="Strict" attribute enforce?',
+    options: [
+      'A) Cookies are sent only on secure HTTPS connections.',
+      'B) Cookies are blocked on cross-site requests, including all standard top-level redirects/links.',
+      'C) JavaScript is prevented from accessing the cookie object via document.cookie.',
+      'D) The cookie expires immediately when the browser window closes.'
+    ]
+  },
+  {
+    id: 'coding-1',
+    title: '4. Non-Repeating Substring',
+    type: 'coding',
+    points: 150,
+    completed: false
+  }
+];
 
 const initialTestCases: TestCase[] = [
   { id: 1, input: 's = "abcabcbb"', expected: '3', status: 'idle' },
@@ -58,7 +127,6 @@ const pythonTemplate = `class Solution:
             
         return max_length`;
 
-// Simple FIFO Execution Queue for Wandbox API Rate-Limiting & Security Throttling
 interface QueueTask {
   id: string;
   code: string;
@@ -68,10 +136,43 @@ interface QueueTask {
   onFailure: (error: string) => void;
 }
 
+// --- SECURE CRYPTOGRAPHIC SHIELD HELPERS (Obfuscation for Hackathon Security Validation) ---
+// Prevents simple inspection/manipulation of client exam answers in localstorage plaintext
+const encryptData = (data: any): string => {
+  const plaintext = JSON.stringify(data);
+  // Base64 + simple char shifts (XOR-equivalent shift) for state obfuscation
+  const key = 42;
+  const shifted = Array.from(plaintext)
+    .map(c => String.fromCharCode(c.charCodeAt(0) ^ key))
+    .join('');
+  return btoa(unescape(encodeURIComponent(shifted)));
+};
+
+const decryptData = (ciphertext: string): any => {
+  try {
+    const raw = decodeURIComponent(escape(atob(ciphertext)));
+    const key = 42;
+    const decrypted = Array.from(raw)
+      .map(c => String.fromCharCode(c.charCodeAt(0) ^ key))
+      .join('');
+    return JSON.parse(decrypted);
+  } catch {
+    return null;
+  }
+};
+
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
+  
+  // Overall exam states
+  const [questions, setQuestions] = useState<Question[]>(initialQuestions);
+  const [currentQuestionId, setCurrentQuestionId] = useState<string>('mcq-1');
+  
+  // MCQ Answer tracking
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+
+  // Coding sandbox states
   const [code, setCode] = useState(pythonTemplate);
-  const [timeLeft, setTimeLeft] = useState(3600); // 1 hour
   const [testCases, setTestCases] = useState<TestCase[]>(initialTestCases);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<'problem' | 'submissions'>('problem');
@@ -81,12 +182,14 @@ export const AssessmentPage: React.FC = () => {
   const [securityScore, setSecurityScore] = useState(100);
   const [hasRun, setHasRun] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState<'Accepted' | 'Wrong Answer' | 'Runtime Error' | 'Security Block' | null>(null);
-
-  // Debug Console stdout logs state
   const [consoleOutput, setConsoleOutput] = useState<string | null>(null);
-
-  // Security warning overlay state
   const [securityViolation, setSecurityViolation] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [focusWarning, setFocusWarning] = useState(false);
+
+  // Clock state
+  const [timeLeft, setTimeLeft] = useState(3600); // 1 hour
 
   // Device & Size Check State (Security Blocking for Mobile Users)
   const [isMobile, setIsMobile] = useState(false);
@@ -95,7 +198,7 @@ export const AssessmentPage: React.FC = () => {
   const [queueLength, setQueueLength] = useState(0);
   const [queueStatus, setQueueStatus] = useState<string>('Idle');
 
-  // Viewport screen-size restriction
+  // 1. Viewport screen-size restriction
   useEffect(() => {
     const checkDevice = () => {
       setIsMobile(window.innerWidth < 768);
@@ -105,12 +208,208 @@ export const AssessmentPage: React.FC = () => {
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
-  // Timer countdown
+  // 2. Load progress securely from LocalStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('evalix_exam_progress_secure');
+    if (savedState) {
+      const decoded = decryptData(savedState);
+      if (decoded) {
+        if (decoded.questions) setQuestions(decoded.questions);
+        if (decoded.code) setCode(decoded.code);
+        if (decoded.securityScore) setSecurityScore(decoded.securityScore);
+        if (decoded.timeLeft) setTimeLeft(decoded.timeLeft);
+        
+        // Sync selected option if current is MCQ
+        const activeQ = decoded.questions.find((q: Question) => q.id === currentQuestionId);
+        if (activeQ && activeQ.selectedOption !== undefined) {
+          setSelectedOption(activeQ.selectedOption);
+        }
+      }
+    }
+  }, []);
+
+  // 3. Save progress securely on State updates
+  const saveStateSecurely = (updatedQuestions: Question[], currentCode: string) => {
+    const stateObj = {
+      questions: updatedQuestions,
+      code: currentCode,
+      securityScore,
+      timeLeft
+    };
+    localStorage.setItem('evalix_exam_progress_secure', encryptData(stateObj));
+  };
+
+  // Sync Timer to state and secure localstorage
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+      setTimeLeft((prev) => {
+        const nextTime = prev > 0 ? prev - 1 : 0;
+        // Save time to localstorage periodically
+        if (nextTime % 10 === 0) {
+          const savedState = localStorage.getItem('evalix_exam_progress_secure');
+          if (savedState) {
+            const decoded = decryptData(savedState);
+            if (decoded) {
+              decoded.timeLeft = nextTime;
+              localStorage.setItem('evalix_exam_progress_secure', encryptData(decoded));
+            }
+          }
+        }
+        return nextTime;
+      });
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Sync selectedOption when switching questions
+  useEffect(() => {
+    const currentQ = questions.find(q => q.id === currentQuestionId);
+    if (currentQ && currentQ.type === 'mcq') {
+      setSelectedOption(currentQ.selectedOption !== undefined ? currentQ.selectedOption : null);
+    }
+  }, [currentQuestionId, questions]);
+
+  // --- EXAM INTEGRITY & ANTI-CHEAT SHIELD ---
+  useEffect(() => {
+    // Helper to dock security score and fire toast warning
+    const dockScore = (reason: string, amount: number = 10) => {
+      setSecurityScore(prev => {
+        const next = Math.max(0, prev - amount);
+        toast.error(`⚠️ Integrity Violation: ${reason}. Score docked.`, {
+          duration: 4000,
+          style: {
+            background: '#1a0a0a',
+            border: '1px solid #7f1d1d',
+            color: '#fca5a5'
+          }
+        });
+        return next;
+      });
+    };
+
+    // 1. Block right-click context menu
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      dockScore('Right-click blocked');
+    };
+
+    // 2. Block copy / cut / paste events globally (capture phase = fires before Monaco)
+    const handleCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      dockScore('Copy attempt detected');
+    };
+    const handleCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      dockScore('Cut attempt detected');
+    };
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      dockScore('Paste attempt detected');
+    };
+
+    // 3. Block DevTools keyboard shortcuts + Ctrl+V paste at keyboard level
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isPaste = (e.ctrlKey || e.metaKey) && e.key.toUpperCase() === 'V';
+      const blocked =
+        e.key === 'F12' ||
+        isPaste ||
+        (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'K', 'U'].includes(e.key.toUpperCase())) ||
+        (e.metaKey && e.altKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
+        (e.ctrlKey && e.key.toUpperCase() === 'U');
+
+      if (blocked) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (isPaste) {
+          dockScore('Paste attempt detected (Ctrl+V)');
+        } else {
+          dockScore(`DevTools shortcut blocked (${e.key})`);
+        }
+      }
+    };
+
+    // 4. Detect DevTools via window resize fingerprint
+    let devToolsOpen = false;
+    const devToolsInterval = setInterval(() => {
+      const threshold = 160;
+      const widthDiff = window.outerWidth - window.innerWidth;
+      const heightDiff = window.outerHeight - window.innerHeight;
+      const isOpen = widthDiff > threshold || heightDiff > threshold;
+
+      if (isOpen && !devToolsOpen) {
+        devToolsOpen = true;
+        dockScore('DevTools panel detected open', 20);
+      } else if (!isOpen) {
+        devToolsOpen = false;
+      }
+    }, 1500);
+
+    // 5. Tab switch detection via Page Visibility API
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => {
+          const next = prev + 1;
+          toast.error(`🚨 Tab switch #${next} detected! Proctor has been notified.`, {
+            duration: 5000,
+            style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+          });
+          dockScore('Tab switch / window hidden', 15);
+          return next;
+        });
+        setFocusWarning(true);
+      } else {
+        setFocusWarning(false);
+      }
+    };
+
+    // 6. Window blur detection (Alt+Tab, browser minimize, other app focus)
+    let blurTimeout: ReturnType<typeof setTimeout>;
+    const handleWindowBlur = () => {
+      // Small delay to avoid false positives from devtools docking
+      blurTimeout = setTimeout(() => {
+        setTabSwitchCount(prev => {
+          const next = prev + 1;
+          toast.error(`🚨 Window focus lost (switch #${next}). Proctor alerted.`, {
+            duration: 5000,
+            style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+          });
+          dockScore('Window focus lost (Alt+Tab / minimize)', 15);
+          return next;
+        });
+        setFocusWarning(true);
+      }, 300);
+    };
+
+    const handleWindowFocus = () => {
+      clearTimeout(blurTimeout);
+      setFocusWarning(false);
+    };
+
+    // Attach all listeners (use capture:true on clipboard events to fire before Monaco)
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('copy', handleCopy, true);
+    document.addEventListener('cut', handleCut, true);
+    document.addEventListener('paste', handlePaste, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('copy', handleCopy, true);
+      document.removeEventListener('cut', handleCut, true);
+      document.removeEventListener('paste', handlePaste, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(devToolsInterval);
+      clearTimeout(blurTimeout);
+    };
   }, []);
 
   const formatTime = (seconds: number) => {
@@ -121,13 +420,33 @@ export const AssessmentPage: React.FC = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm('Reset code to default template?')) {
-      setCode(pythonTemplate);
-    }
+    setShowResetConfirm(true);
   };
 
-  // --- STATIC SECURITY STATIC ANALYSIS (AST SHIELD) ---
-  // Blocks forbidden system calls to guarantee code safety inside the assessment environment
+  // --- SAVE MCQ QUESTION RESPONSE ---
+  const saveMCQAnswer = () => {
+    if (selectedOption === null) {
+      toast.error('Please select an option before saving.');
+      return;
+    }
+
+    const updated = questions.map((q) => {
+      if (q.id === currentQuestionId) {
+        return {
+          ...q,
+          completed: true,
+          selectedOption
+        };
+      }
+      return q;
+    });
+
+    setQuestions(updated);
+    saveStateSecurely(updated, code);
+    toast.success('Response saved to sandbox state.');
+  };
+
+  // Static AST Scanner
   const analyzeCodeSecurity = (sourceCode: string): string | null => {
     const forbiddenImports = [
       'import os', 'from os', 
@@ -145,13 +464,11 @@ export const AssessmentPage: React.FC = () => {
     return null;
   };
 
-  // --- COMPILER WORKER REQUEST QUEUE PROCESSOR ---
-  // Sequential processing with a 2000ms cool-down delay to respect Wandbox API rate limits
+  // FIFO request execution queue worker
   const addToExecutionQueue = (task: QueueTask) => {
     setQueueLength((prev) => prev + 1);
     setQueueStatus('Queued');
     
-    // Simulate compilation server-side queue worker execution
     setTimeout(async () => {
       setQueueStatus('Processing');
       task.onStart();
@@ -170,7 +487,7 @@ export const AssessmentPage: React.FC = () => {
         });
 
         if (!response.ok) {
-          throw new Error(`Wandbox Server Error: Code ${response.status}`);
+          throw new Error(`Sandbox Server Error: Code ${response.status}`);
         }
 
         const data = await response.json();
@@ -179,7 +496,6 @@ export const AssessmentPage: React.FC = () => {
           throw new Error(data.program_error || data.compiler_error);
         }
 
-        // Parse program execution stdout output
         const stdout = data.program_output || data.stdout || '';
         const successIdx = stdout.indexOf("EVAL_SUCCESS");
         
@@ -217,11 +533,11 @@ export const AssessmentPage: React.FC = () => {
   };
 
   const runCode = async () => {
-    // 1. AST Security Analysis check
+    // AST Check
     const violation = analyzeCodeSecurity(code);
     if (violation) {
       setSecurityViolation(violation);
-      setSecurityScore((prev) => Math.max(0, prev - 25)); // Dock score on integrity violation
+      setSecurityScore((prev) => Math.max(0, prev - 25)); 
       setSubmissionStatus('Security Block');
       setConsoleOpen(true);
       setConsoleTab('result');
@@ -235,7 +551,6 @@ export const AssessmentPage: React.FC = () => {
       return;
     }
 
-    // 2. Setup execution wrapper for Wandbox
     const executionCode = `
 import json
 import sys
@@ -275,6 +590,11 @@ except Exception as _e:
         setHasRun(true);
         setSubmissionStatus(results.every(t => t.status === 'passed') ? 'Accepted' : 'Wrong Answer');
         setIsRunning(false);
+        
+        // Save Coding question progress
+        const updated = questions.map(q => q.id === 'coding-1' ? { ...q, completed: true } : q);
+        setQuestions(updated);
+        saveStateSecurely(updated, code);
       },
       onFailure: (errorMsg) => {
         const updated = testCases.map((tc) => ({
@@ -295,7 +615,8 @@ except Exception as _e:
   };
 
   const submitAssessment = () => {
-    alert(`Assessment submitted successfully! Final Integrity Score: ${securityScore}%. Redirecting.`);
+    toast.success(`Assessment submitted! Final Integrity Score: ${securityScore}%`);
+    localStorage.removeItem('evalix_exam_progress_secure'); // Clear progress on successful submission
     navigate('/');
   };
 
@@ -304,28 +625,22 @@ except Exception as _e:
     return (
       <div className="min-h-screen bg-[#030712] flex flex-col justify-center items-center px-6 py-12 relative overflow-hidden bg-grid-pattern">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50%] h-[50%] rounded-full bg-rose-500/5 blur-[120px] pointer-events-none" />
-        
         <div className="max-w-md w-full glass-panel border border-rose-500/20 p-8 rounded-3xl text-center space-y-6 relative z-10 shadow-2xl">
           <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
             <ShieldAlert className="w-8 h-8 animate-pulse" />
           </div>
-          
           <div className="space-y-2">
-            <h1 className="text-xl font-bold text-white font-['Outfit']">
-              Security Restriction
-            </h1>
+            <h1 className="text-xl font-bold text-white font-['Outfit']">Security Restriction</h1>
             <p className="text-sm text-slate-400 leading-relaxed">
               Mobile devices are restricted from accessing Evalix secure assessments to maintain exam integrity and proctor validation.
             </p>
           </div>
-
           <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-900 flex items-center gap-3 text-left">
             <Monitor className="w-5 h-5 text-indigo-400 shrink-0" />
             <span className="text-xs text-slate-500">
               Please restart this test on a <strong>Tablet, Laptop, or Desktop</strong> screen (width &ge; 768px).
             </span>
           </div>
-
           <button 
             onClick={() => navigate('/')}
             className="w-full py-3.5 px-5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl text-sm font-semibold transition-all"
@@ -337,18 +652,20 @@ except Exception as _e:
     );
   }
 
+  const activeQuestion = questions.find(q => q.id === currentQuestionId);
+
   return (
-    <div className="h-screen bg-[#1a1a1a] flex flex-col text-slate-200 overflow-hidden font-sans select-none">
+    <div className="exam-secure-shell h-screen bg-[#1a1a1a] flex flex-col text-slate-200 overflow-hidden font-sans select-none">
       
       {/* Top Header Bar */}
-      <header className="h-12 border-b border-[#282828] bg-[#1a1a1a] px-4 flex items-center justify-between z-10">
+      <header className="h-12 border-b border-[#282828] bg-[#1a1a1a] px-4 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/login-select')}
             className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Problem List
+            Exit Portal
           </button>
           <div className="h-4 w-px bg-[#282828]" />
           <div className="flex items-center gap-2">
@@ -380,396 +697,507 @@ except Exception as _e:
             }`}>
               Score: {securityScore}%
             </div>
+            {tabSwitchCount > 0 && (
+              <div className="px-2 py-0.5 rounded text-[10px] font-bold border bg-amber-500/10 border-amber-500/30 text-amber-400">
+                Tab Switches: {tabSwitchCount}
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Main Split View */}
-      <div className="flex-1 flex overflow-hidden p-2.5 gap-2 bg-[#1a1a1a]">
-        
-        {/* Left Panel: Description & Submissions */}
-        <div className="w-[45%] flex flex-col rounded-lg bg-[#282828] border border-[#333] overflow-hidden">
-          <div className="flex bg-[#282828] border-b border-[#383838]">
-            <button 
-              onClick={() => setActiveTab('problem')}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-t-2 ${
-                activeTab === 'problem' 
-                  ? 'border-orange-500 text-white bg-[#2d2d2d]' 
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              Description
-            </button>
-            <button 
-              onClick={() => setActiveTab('submissions')}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-t-2 ${
-                activeTab === 'submissions' 
-                  ? 'border-orange-500 text-white bg-[#2d2d2d]' 
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Code className="w-3.5 h-3.5" />
-              Submissions
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
-            {activeTab === 'problem' ? (
-              <div className="space-y-6">
-                <div>
-                  <h1 className="text-xl font-bold text-white mb-2">
-                    3. Longest Substring Without Repeating Characters
-                  </h1>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/25">
-                      Medium
-                    </span>
-                    <span className="text-xs text-slate-500">Evalix Coding Lab | 150 pts</span>
-                  </div>
-                </div>
-
-                {securityViolation && (
-                  <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/20 text-rose-400 font-mono text-xs flex items-center gap-3 animate-pulse">
-                    <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
-                    <span>[INTEGRITY ALERT]: Forbidden pattern <strong>"{securityViolation}"</strong> detected by AST static code shield. Execution locked.</span>
-                  </div>
-                )}
-
-                <div className="text-sm text-slate-300 leading-relaxed space-y-4 font-sans">
-                  <p>
-                    Given a string <code>s</code>, find the length of the <strong>longest substring</strong> without repeating characters.
-                  </p>
-
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 1:</p>
-                      <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
-                        <div><strong className="text-slate-400">Input:</strong> s = "abcabcbb"</div>
-                        <div><strong className="text-slate-400">Output:</strong> 3</div>
-                        <div><strong className="text-slate-400">Explanation:</strong> The answer is "abc", with the length of 3.</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 2:</p>
-                      <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
-                        <div><strong className="text-slate-400">Input:</strong> s = "bbbbb"</div>
-                        <div><strong className="text-slate-400">Output:</strong> 1</div>
-                        <div><strong className="text-slate-400">Explanation:</strong> The answer is "b", with the length of 1.</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 3:</p>
-                      <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
-                        <div><strong className="text-slate-400">Input:</strong> s = "pwwkew"</div>
-                        <div><strong className="text-slate-400">Output:</strong> 3</div>
-                        <div><strong className="text-slate-400">Explanation:</strong> The answer is "wke", with the length of 3. Note that the answer must be a substring, "pwke" is a subsequence and not a substring.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5 pt-2">
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Constraints:</h3>
-                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-300 font-mono">
-                    <li>0 &lt;= s.length &lt;= 5 * 10<sup>4</sup></li>
-                    <li>s consists of English letters, digits, symbols and spaces.</li>
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Submission History</span>
-                {hasRun ? (
-                  <div className="p-4 rounded-xl bg-[#1e1e1e] border border-[#333] flex justify-between items-center">
-                    <div>
-                      <div className={`text-sm font-bold ${
-                        submissionStatus === 'Accepted' ? 'text-emerald-400' : 'text-rose-500'
-                      }`}>
-                        {submissionStatus}
-                      </div>
-                      <span className="text-[10px] text-slate-500">Wandbox Sandbox Engine Run</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-slate-300 font-semibold font-mono">Status: {submissionStatus}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-500 text-xs">
-                    No submissions compiled yet. Run your test cases to see analysis here.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      {/* Focus Warning Banner */}
+      {focusWarning && (
+        <div className="shrink-0 bg-rose-900/70 border-b border-rose-700/60 px-4 py-2 flex items-center gap-3 z-20 animate-pulse">
+          <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+          <span className="text-xs font-semibold text-rose-300">
+            ⚠️ Proctor Alert: Window focus lost — return to the exam immediately. This violation has been logged.
+          </span>
         </div>
+      )}
 
-        {/* Right Panel: Monaco Editor & Collapsible Console */}
-        <div className="flex-1 flex flex-col gap-2 overflow-hidden">
-          
-          <div className="flex-1 flex flex-col rounded-lg bg-[#282828] border border-[#333] overflow-hidden">
-            {/* Editor Toolbar */}
-            <div className="h-10 border-b border-[#383838] bg-[#282828] px-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-[#333] hover:bg-[#383838] text-white transition-colors cursor-pointer">
-                  Python 3
-                  <ChevronDown className="w-3 h-3 text-slate-500" />
-                </button>
-                <div className="h-3 w-px bg-[#383838]" />
-                <button className="p-1 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Auto-complete active">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button 
-                  onClick={handleReset} 
-                  className="p-1.5 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" 
-                  title="Reset code"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-                <button className="p-1.5 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Settings">
-                  <Settings className="w-3.5 h-3.5" />
-                </button>
-                <button className="p-1.5 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Fullscreen">
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+      {/* Main Workspace Frame */}
+      <div className="flex-1 flex overflow-hidden bg-[#141414]">
+        
+        {/* Left Navigation Sidebar (Question progress dashboard) */}
+        <aside className="w-64 border-r border-[#282828] bg-[#1a1a1a] flex flex-col justify-between shrink-0">
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#282828] pb-3">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Exam Questions</span>
+              <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono font-bold">
+                {questions.filter(q => q.completed).length} / {questions.length}
+              </span>
             </div>
 
-            <div className="flex-1 min-h-[220px]">
-              <Editor
-                height="100%"
-                language="python"
-                value={code}
-                onChange={(value) => setCode(value || '')}
-                theme="vs-dark"
-                options={{
-                  fontSize: 13,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
-                  minimap: { enabled: false },
-                  lineNumbers: 'on',
-                  roundedSelection: true,
-                  scrollBeyondLastLine: false,
-                  readOnly: false,
-                  automaticLayout: true,
-                  padding: { top: 10, bottom: 10 },
-                  suggestOnTriggerCharacters: true,
-                  quickSuggestions: true,
-                  wordBasedSuggestions: 'allDocuments',
-                  snippetSuggestions: 'inline',
-                }}
-              />
+            {/* Questions Selection List */}
+            <div className="space-y-1.5 overflow-y-auto max-h-[calc(100vh-220px)]">
+              {questions.map((q) => (
+                <button
+                  key={q.id}
+                  onClick={() => setCurrentQuestionId(q.id)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    currentQuestionId === q.id
+                      ? 'bg-indigo-600/10 border-indigo-500 text-white font-medium shadow-md shadow-indigo-600/5'
+                      : 'bg-transparent border-transparent text-slate-400 hover:bg-[#252525] hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {q.type === 'mcq' ? (
+                      <HelpCircle className={`w-4 h-4 shrink-0 ${currentQuestionId === q.id ? 'text-indigo-400' : 'text-slate-500'}`} />
+                    ) : (
+                      <Code2 className={`w-4 h-4 shrink-0 ${currentQuestionId === q.id ? 'text-indigo-400' : 'text-slate-500'}`} />
+                    )}
+                    <span className="text-xs truncate">{q.title}</span>
+                  </div>
+
+                  {q.completed ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-slate-700 shrink-0" />
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* LeetCode Collapsible Console */}
-          <div className={`rounded-lg bg-[#282828] border border-[#333] flex flex-col overflow-hidden transition-all duration-300 ${
-            consoleOpen ? 'h-[250px]' : 'h-10'
-          }`}>
-            <div className="h-10 border-b border-[#383838] bg-[#282828] px-4 flex items-center justify-between">
-              <button 
-                onClick={() => setConsoleOpen(!consoleOpen)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
-              >
-                <ChevronDown className={`w-3.5 h-3.5 transform transition-transform ${consoleOpen ? '' : 'rotate-180'}`} />
-                Console
-              </button>
+          {/* Sidebar Footer Lock indicator */}
+          <div className="p-4 border-t border-[#282828] bg-[#1e1e1e]/40 space-y-3">
+            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+              <Lock className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Secure Sandboxed Environment</span>
+            </div>
+            <button
+              onClick={submitAssessment}
+              className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer"
+            >
+              Submit Exam Session
+            </button>
+          </div>
+        </aside>
 
-              {/* Wandbox API rate limit queue monitor in toolbar */}
-              {queueLength > 0 && (
-                <div className="flex items-center gap-2 text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2.5 py-1 rounded-md font-mono animate-pulse">
-                  <Layers className="w-3.5 h-3.5 shrink-0" />
-                  <span>Queue position: {queueLength} ({queueStatus})</span>
+        {/* Right Workspace Main Pane */}
+        <main className="flex-1 flex overflow-hidden relative">
+          {activeQuestion && activeQuestion.type === 'mcq' ? (
+            
+            // --- MCQ QUESTION SCREEN INTERFACE ---
+            <div className="flex-1 flex flex-col justify-center items-center p-8 bg-[#151515] overflow-y-auto">
+              <div className="max-w-2xl w-full glass-panel border border-[#333] p-8 rounded-3xl space-y-6 shadow-2xl relative">
+                
+                {/* MCQ Question Header */}
+                <div className="flex justify-between items-start gap-4">
+                  <span className="px-3 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 text-xs font-bold border border-indigo-500/20 font-mono">
+                    MCQ Challenge | {activeQuestion.points} Points
+                  </span>
+                  {activeQuestion.completed && (
+                    <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
+                      <CheckCircle className="w-4 h-4" />
+                      Answer Saved
+                    </span>
+                  )}
                 </div>
-              )}
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setConsoleOpen(true);
-                    setConsoleTab('testcase');
-                  }}
-                  className={`px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                    consoleTab === 'testcase' && consoleOpen ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Testcase
-                </button>
-                <button
-                  onClick={() => {
-                    setConsoleOpen(true);
-                    setConsoleTab('result');
-                  }}
-                  className={`px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                    consoleTab === 'result' && consoleOpen ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Result
-                </button>
+                <h2 className="text-lg font-bold text-white leading-relaxed">
+                  {activeQuestion.mcqQuestion}
+                </h2>
+
+                {/* MCQ Options list */}
+                <div className="space-y-3 pt-2">
+                  {activeQuestion.options?.map((opt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedOption(idx)}
+                      className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-3.5 cursor-pointer ${
+                        selectedOption === idx
+                          ? 'bg-indigo-600/10 border-indigo-500 text-white shadow-lg'
+                          : 'bg-[#1a1a1a]/60 border-[#2b2b2b] text-slate-300 hover:border-[#3a3a3a] hover:bg-[#1a1a1a]'
+                      }`}
+                    >
+                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        selectedOption === idx ? 'border-indigo-500 bg-indigo-600' : 'border-slate-700 bg-transparent'
+                      }`}>
+                        {selectedOption === idx && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                      <span className="text-sm font-medium">{opt}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Save Trigger Button */}
+                <div className="flex justify-end pt-4 border-t border-[#282828]">
+                  <button
+                    onClick={saveMCQAnswer}
+                    className="flex items-center gap-2 py-3 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Response
+                  </button>
+                </div>
               </div>
             </div>
+          ) : (
+            
+            // --- CODING QUESTION SANDBOX LEETCODE SCREEN ---
+            <div className="flex-grow flex overflow-hidden p-2.5 gap-2 bg-[#1a1a1a] w-full">
+              {/* LeetCode Left Panel */}
+              <div className="w-[45%] flex flex-col rounded-lg bg-[#282828] border border-[#333] overflow-hidden">
+                <div className="flex bg-[#282828] border-b border-[#383838]">
+                  <button 
+                    onClick={() => setActiveTab('problem')}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-t-2 ${
+                      activeTab === 'problem' 
+                        ? 'border-orange-500 text-white bg-[#2d2d2d]' 
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    Description
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('submissions')}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors border-t-2 ${
+                      activeTab === 'submissions' 
+                        ? 'border-orange-500 text-white bg-[#2d2d2d]' 
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                    Submissions
+                  </button>
+                </div>
 
-            {consoleOpen && (
-              <div className="flex-1 p-4 bg-[#1e1e1e] overflow-y-auto text-xs">
-                {consoleTab === 'testcase' ? (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      {testCases.map((tc) => (
-                        <button
-                          key={tc.id}
-                          onClick={() => setActiveTestCaseId(tc.id)}
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
-                            activeTestCaseId === tc.id
-                              ? 'bg-[#333] border-[#555] text-white'
-                              : 'bg-transparent border-[#333] text-slate-400 hover:border-[#444]'
-                          }`}
-                        >
-                          Case {tc.id}
-                        </button>
-                      ))}
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">String s</span>
-                      <div className="font-mono p-3 bg-[#2d2d2d] border border-[#3c3c3c] rounded-lg text-orange-400 font-semibold">
-                        {testCases.find(t => t.id === activeTestCaseId)?.input.replace('s = ', '')}
+                <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                  {activeTab === 'problem' ? (
+                    <div className="space-y-6">
+                      <div>
+                        <h1 className="text-xl font-bold text-white mb-2">
+                          3. Longest Substring Without Repeating Characters
+                        </h1>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/25">
+                            Medium
+                          </span>
+                          <span className="text-xs text-slate-500">Evalix Coding Lab | 150 pts</span>
+                        </div>
                       </div>
+
+                      {securityViolation && (
+                        <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/20 text-rose-400 font-mono text-xs flex items-center gap-3 animate-pulse">
+                          <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+                          <span>[INTEGRITY ALERT]: Forbidden pattern <strong>"{securityViolation}"</strong> detected by AST static code shield. Execution locked.</span>
+                        </div>
+                      )}
+
+                      <div className="text-sm text-slate-300 leading-relaxed space-y-4 font-sans">
+                        <p>
+                          Given a string <code>s</code>, find the length of the <strong>longest substring</strong> without repeating characters.
+                        </p>
+
+                        <div className="space-y-4 pt-2">
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 1:</p>
+                            <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
+                              <div><strong className="text-slate-400">Input:</strong> s = "abcabcbb"</div>
+                              <div><strong className="text-slate-400">Output:</strong> 3</div>
+                              <div><strong className="text-slate-400">Explanation:</strong> The answer is "abc", with the length of 3.</div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 2:</p>
+                            <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
+                              <div><strong className="text-slate-400">Input:</strong> s = "bbbbb"</div>
+                              <div><strong className="text-slate-400">Output:</strong> 1</div>
+                              <div><strong className="text-slate-400">Explanation:</strong> The answer is "b", with the length of 1.</div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 3:</p>
+                            <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
+                              <div><strong className="text-slate-400">Input:</strong> s = "pwwkew"</div>
+                              <div><strong className="text-slate-400">Output:</strong> 3</div>
+                              <div><strong className="text-slate-400">Explanation:</strong> The answer is "wke", with the length of 3. Note that the answer must be a substring, "pwke" is a subsequence and not a substring.</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 pt-2">
+                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Constraints:</h3>
+                        <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-300 font-mono">
+                          <li>0 &lt;= s.length &lt;= 5 * 10<sup>4</sup></li>
+                          <li>s consists of English letters, digits, symbols and spaces.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Submission History</span>
+                      {hasRun ? (
+                        <div className="p-4 rounded-xl bg-[#1e1e1e] border border-[#333] flex justify-between items-center">
+                          <div>
+                            <div className={`text-sm font-bold ${
+                              submissionStatus === 'Accepted' ? 'text-emerald-400' : 'text-rose-500'
+                            }`}>
+                              {submissionStatus}
+                            </div>
+                            <span className="text-[10px] text-slate-500">Secure Sandbox Engine Run</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs text-slate-300 font-semibold font-mono">Status: {submissionStatus}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 text-slate-500 text-xs">
+                          No submissions compiled yet. Run your test cases to see analysis here.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* LeetCode Right Panel */}
+              <div className="flex-grow flex flex-col gap-2 overflow-hidden">
+                <div className="flex-grow flex flex-col rounded-lg bg-[#282828] border border-[#333] overflow-hidden">
+                  {/* Toolbar */}
+                  <div className="h-10 border-b border-[#383838] bg-[#282828] px-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded bg-[#333] hover:bg-[#383838] text-white transition-colors cursor-pointer">
+                        Python 3
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                      </button>
+                      <div className="h-3 w-px bg-[#383838]" />
+                      <button className="p-1 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Auto-complete active">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={handleReset} className="p-1.5 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Reset code">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                      <button className="p-1.5 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Settings">
+                        <Settings className="w-3.5 h-3.5" />
+                      </button>
+                      <button className="p-1.5 rounded hover:bg-[#333] text-slate-400 hover:text-white transition-colors cursor-pointer" title="Fullscreen">
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {isRunning ? (
-                      <div className="flex flex-col items-center justify-center py-6 gap-2.5">
-                        <Hourglass className="w-5 h-5 text-orange-500 animate-spin" />
-                        <span className="text-slate-400 text-xs font-mono">Wandbox queue processing request securely...</span>
-                      </div>
-                    ) : hasRun ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <span className={`text-base font-bold uppercase tracking-wider ${
-                            submissionStatus === 'Accepted' 
-                              ? 'text-emerald-400' 
-                              : 'text-rose-500'
-                          }`}>
-                            {submissionStatus}
-                          </span>
-                          <span className="text-xs text-slate-500">Wandbox Secure API compilation</span>
-                        </div>
 
-                        {/* Display security / AST blocker errors */}
-                        {testCases[0]?.error ? (
-                          <div className="p-4 rounded-lg bg-rose-950/20 border border-rose-500/20 text-rose-400 font-mono text-[11px] whitespace-pre-wrap flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                            <span>{testCases[0].error}</span>
-                          </div>
-                        ) : (
-                          <>
-                            {consoleOutput && (
-                              <div className="space-y-1.5 mb-4 animate-fade-in">
-                                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">Stdout Logs</span>
-                                <pre className="p-3 bg-[#131313] border border-[#2d2d2d] rounded-lg font-mono text-xs text-orange-200/90 max-h-[100px] overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                                  {consoleOutput}
-                                </pre>
-                              </div>
-                            )}
+                  {/* Monaco editor */}
+                  <div className="flex-grow min-h-[220px]">
+                    <Editor
+                      height="100%"
+                      language="python"
+                      value={code}
+                      onChange={(value) => {
+                        setCode(value || '');
+                        saveStateSecurely(questions, value || '');
+                      }}
+                      theme="vs-dark"
+                      onMount={(editor) => {
+                        // Override Monaco's internal paste command — blocks right-click → Paste
+                        editor.addCommand(
+                          // KeyCode for Ctrl+V is 2097 in Monaco keybinding notation; 
+                          // but overriding the paste action by ID is more reliable
+                          0, // null keybinding (we just want to override the action)
+                          () => {} // no-op
+                        );
 
-                            <div className="flex gap-2 border-b border-[#333] pb-2">
-                              {testCases.map((tc) => (
-                                <button
-                                  key={tc.id}
-                                  onClick={() => setActiveTestCaseId(tc.id)}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold border ${
-                                    activeTestCaseId === tc.id
-                                      ? 'bg-[#333] border-[#555] text-white'
-                                      : 'bg-transparent border-[#2d2d2d] text-slate-400'
-                                  }`}
-                                >
-                                  {tc.status === 'passed' ? (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                  )}
-                                  Case {tc.id}
-                                </button>
-                              ))}
-                            </div>
+                        // Directly override the editor.trigger paste action
+                        // The paste action in Monaco is registered as 'editor.action.clipboardPasteAction'
+                        // We replace it by adding a command override on the editor instance
+                        const pasteActionId = 'editor.action.clipboardPasteAction';
+                        editor.addAction({
+                          id: pasteActionId,
+                          label: 'Paste (Blocked)',
+                          run: () => {
+                            toast.error('⚠️ Integrity Violation: Paste attempt detected. Score docked.', {
+                              duration: 4000,
+                              style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+                            });
+                            setSecurityScore(prev => Math.max(0, prev - 10));
+                          }
+                        });
+                      }}
+                      options={{
+                        fontSize: 13,
+                        fontFamily: "'Fira Code', 'Courier New', monospace",
+                        minimap: { enabled: false },
+                        lineNumbers: 'on',
+                        roundedSelection: true,
+                        scrollBeyondLastLine: false,
+                        readOnly: false,
+                        automaticLayout: true,
+                        padding: { top: 10, bottom: 10 },
+                        suggestOnTriggerCharacters: true,
+                        quickSuggestions: true,
+                        wordBasedSuggestions: 'allDocuments',
+                        snippetSuggestions: 'inline',
+                        contextmenu: false,
+                      }}
+                    />
+                  </div>
+                </div>
 
-                            {(() => {
-                              const selectedCase = testCases.find(t => t.id === activeTestCaseId);
-                              if (!selectedCase) return null;
-                              return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Input</span>
-                                    <div className="p-2.5 rounded bg-[#282828] border border-[#383838] font-mono text-slate-300 font-semibold">
-                                      {selectedCase.input}
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Output</span>
-                                    <div className={`p-2.5 rounded border font-mono ${
-                                      selectedCase.status === 'passed' 
-                                        ? 'bg-[#282828] border-emerald-950/60 text-emerald-400 font-semibold' 
-                                        : 'bg-[#282828] border-rose-950/60 text-rose-400 font-semibold'
-                                    }`}>
-                                      {selectedCase.actual}
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1 md:col-span-2">
-                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">Expected Output</span>
-                                    <div className="p-2.5 rounded bg-[#282828] border border-[#383838] font-mono text-emerald-400 font-semibold">
-                                      {selectedCase.expected}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-slate-500 text-xs">
-                        Please run your code to see the testcase results.
+                {/* Console */}
+                <div className={`rounded-lg bg-[#282828] border border-[#333] flex flex-col overflow-hidden transition-all duration-300 ${
+                  consoleOpen ? 'h-[250px]' : 'h-10'
+                }`}>
+                  <div className="h-10 border-b border-[#383838] bg-[#282828] px-4 flex items-center justify-between">
+                    <button onClick={() => setConsoleOpen(!consoleOpen)} className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer">
+                      <ChevronDown className={`w-3.5 h-3.5 transform transition-transform ${consoleOpen ? '' : 'rotate-180'}`} />
+                      Console
+                    </button>
+                    
+                    {queueLength > 0 && (
+                      <div className="flex items-center gap-2 text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2.5 py-1 rounded-md font-mono animate-pulse">
+                        <Layers className="w-3.5 h-3.5 shrink-0" />
+                        <span>Queue position: {queueLength} ({queueStatus})</span>
                       </div>
                     )}
+
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setConsoleOpen(true); setConsoleTab('testcase'); }} className={`px-3 py-1.5 text-[11px] font-semibold transition-colors ${consoleTab === 'testcase' && consoleOpen ? 'text-white' : 'text-slate-400'}`}>Testcase</button>
+                      <button onClick={() => { setConsoleOpen(true); setConsoleTab('result'); }} className={`px-3 py-1.5 text-[11px] font-semibold transition-colors ${consoleTab === 'result' && consoleOpen ? 'text-white' : 'text-slate-400'}`}>Result</button>
+                    </div>
                   </div>
-                )}
+
+                  {consoleOpen && (
+                    <div className="flex-1 p-4 bg-[#1e1e1e] overflow-y-auto text-xs">
+                      {consoleTab === 'testcase' ? (
+                        <div className="space-y-4">
+                          <div className="flex gap-2">
+                            {testCases.map((tc) => (
+                              <button key={tc.id} onClick={() => setActiveTestCaseId(tc.id)} className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${activeTestCaseId === tc.id ? 'bg-[#333] border-[#555] text-white' : 'bg-transparent border-[#333] text-slate-400'}`}>Case {tc.id}</button>
+                            ))}
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">String s</span>
+                            <div className="font-mono p-3 bg-[#2d2d2d] border border-[#3c3c3c] rounded-lg text-orange-400 font-semibold">{testCases.find(t => t.id === activeTestCaseId)?.input.replace('s = ', '')}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {isRunning ? (
+                            <div className="flex flex-col items-center justify-center py-6 gap-2.5">
+                              <Hourglass className="w-5 h-5 text-orange-500 animate-spin" />
+                              <span className="text-slate-400 text-xs font-mono">Sandboxed compiler environment running verification tests...</span>
+                            </div>
+                          ) : hasRun ? (
+                            <div className="space-y-4 animate-fade-in">
+                              <div className="flex items-center gap-3">
+                                <span className={`text-base font-bold uppercase tracking-wider ${submissionStatus === 'Accepted' ? 'text-emerald-400' : 'text-rose-500'}`}>{submissionStatus}</span>
+                                <span className="text-xs text-slate-500">Secure compiler sandbox</span>
+                              </div>
+
+                              {testCases[0]?.error ? (
+                                <div className="p-4 rounded-lg bg-rose-950/20 border border-rose-500/20 text-rose-400 font-mono text-[11px] whitespace-pre-wrap flex items-start gap-3">
+                                  <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                                  <span>{testCases[0].error}</span>
+                                </div>
+                              ) : (
+                                <>
+                                  {consoleOutput && (
+                                    <div className="space-y-1.5 mb-4">
+                                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">Stdout Logs</span>
+                                      <pre className="p-3 bg-[#131313] border border-[#2d2d2d] rounded-lg font-mono text-xs text-orange-200/90 max-h-[100px] overflow-y-auto whitespace-pre-wrap leading-relaxed">{consoleOutput}</pre>
+                                    </div>
+                                  )}
+
+                                  <div className="flex gap-2 border-b border-[#333] pb-2">
+                                    {testCases.map((tc) => (
+                                      <button key={tc.id} onClick={() => setActiveTestCaseId(tc.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-semibold border ${activeTestCaseId === tc.id ? 'bg-[#333] border-[#555] text-white' : 'bg-transparent border-[#2d2d2d] text-slate-400'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${tc.status === 'passed' ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                                        Case {tc.id}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {(() => {
+                                    const selectedCase = testCases.find(t => t.id === activeTestCaseId);
+                                    if (!selectedCase) return null;
+                                    return (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                          <span className="text-[10px] text-slate-500 uppercase tracking-wider">Input</span>
+                                          <div className="p-2.5 rounded bg-[#282828] border border-[#383838] font-mono text-slate-300 font-semibold">{selectedCase.input}</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <span className="text-[10px] text-slate-500 uppercase tracking-wider">Output</span>
+                                          <div className={`p-2.5 rounded border font-mono ${selectedCase.status === 'passed' ? 'bg-[#282828] border-emerald-950/60 text-emerald-400 font-semibold' : 'bg-[#282828] border-rose-950/60 text-rose-400 font-semibold'}`}>{selectedCase.actual}</div>
+                                        </div>
+                                        <div className="space-y-1 md:col-span-2">
+                                          <span className="text-[10px] text-slate-500 uppercase tracking-wider">Expected Output</span>
+                                          <div className="p-2.5 rounded bg-[#282828] border border-[#383838] font-mono text-emerald-400 font-semibold">{selectedCase.expected}</div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 text-slate-500 text-xs">Please run your code to see the testcase results.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bottom actions */}
+                <div className="h-12 border border-[#333] rounded-lg bg-[#282828] px-4 flex items-center justify-between shrink-0">
+                  <button onClick={() => setConsoleOpen(!consoleOpen)} className="px-3.5 py-1.5 rounded bg-[#333] hover:bg-[#383838] text-slate-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer">Console</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={runCode} disabled={isRunning} className="px-4 py-1.5 rounded bg-[#333] hover:bg-[#3b3b3b] disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      Run
+                    </button>
+                    <button onClick={submitAssessment} className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer">Submit</button>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </main>
 
-          {/* Action bar */}
-          <div className="h-12 border border-[#333] rounded-lg bg-[#282828] px-4 flex items-center justify-between">
-            <button 
-              onClick={() => setConsoleOpen(!consoleOpen)}
-              className="px-3.5 py-1.5 rounded bg-[#333] hover:bg-[#383838] text-slate-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
-            >
-              Console
-            </button>
+      </div>
 
-            <div className="flex items-center gap-2">
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 animate-fade-in">
+          <div className="glass-panel border border-[#333] p-6 rounded-2xl max-w-sm w-full space-y-4 shadow-2xl text-center">
+            <div className="w-12 h-12 rounded-full bg-orange-500/10 border border-orange-500/25 flex items-center justify-center mx-auto text-orange-400">
+              <RotateCcw className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-white">Reset Code Sandbox?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">This will discard your current progress and restore the default Python template.</p>
+            </div>
+            <div className="flex gap-2 pt-2">
               <button 
-                onClick={runCode}
-                disabled={isRunning}
-                className="px-4 py-1.5 rounded bg-[#333] hover:bg-[#3b3b3b] disabled:bg-slate-800 disabled:text-slate-600 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-2 bg-[#2a2a2a] hover:bg-[#333] border border-[#3c3c3c] text-xs font-semibold rounded-lg transition-colors cursor-pointer text-slate-300 hover:text-white"
               >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                Run
+                Cancel
               </button>
               <button 
-                onClick={submitAssessment}
-                className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer"
+                onClick={() => {
+                  setCode(pythonTemplate);
+                  saveStateSecurely(questions, pythonTemplate);
+                  setShowResetConfirm(false);
+                  toast.success('Code template restored');
+                }}
+                className="flex-1 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
               >
-                Submit
+                Reset
               </button>
             </div>
           </div>
-
         </div>
-      </div>
+      )}
     </div>
   );
 };

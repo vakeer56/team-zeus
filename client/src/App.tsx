@@ -6,6 +6,7 @@ import { LoginSelectionPage } from './pages/LoginSelectionPage';
 import { RecruiterLoginPage } from './pages/RecruiterLoginPage';
 import { CandidateLoginPage } from './pages/CandidateLoginPage';
 import { AssessmentPage } from './pages/AssessmentPage';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const location = useLocation();
@@ -19,6 +20,7 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#030712] text-slate-100 selection:bg-indigo-500/30 selection:text-white font-sans">
+      <Toaster position="top-right" toastOptions={{ style: { background: '#111827', color: '#fff', border: '1px solid #1f2937' } }} />
       {!hideLayout && <Navbar />}
       
       <main className="flex-grow">
