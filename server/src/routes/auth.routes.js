@@ -1,6 +1,6 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const {
     register,
     login,
@@ -35,8 +35,12 @@ const loginLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => {
-        const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "unknown";
-        return `${req.ip}:${email}`;
+    const email =
+        typeof req.body?.email === "string"
+            ? req.body.email.trim().toLowerCase()
+            : "unknown";
+
+    return `${ipKeyGenerator(req.ip)}:${email}`;
     },
     message: {
         success: false,
@@ -49,7 +53,7 @@ const registerLimiter = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => req.ip,
+    keyGenerator: (req) => ipKeyGenerator(req.ip),
     message: {
         success: false,
         message: "Too many registrations from this IP. Please try again later.",
