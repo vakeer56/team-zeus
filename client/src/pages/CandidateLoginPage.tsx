@@ -35,7 +35,7 @@ export const CandidateLoginPage: React.FC = () => {
         }
 
         // 2. Call backend register route
-        const response = await fetch("https://team-zeus.onrender.com/register", {
+        const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/register", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -60,7 +60,7 @@ export const CandidateLoginPage: React.FC = () => {
       } else {
         // --- SIGN IN / LOGIN FLOW ---
         // 1. Call backend login route
-        const response = await fetch("https://team-zeus.onrender.com/login", {
+        const response = await fetch("https://team-zeus-oz502elrp-varuns-projects-ed5fdbfe.vercel.app/login", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
