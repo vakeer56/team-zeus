@@ -24,7 +24,7 @@ const loginLimiter = rateLimit({
                 ? req.body.email.trim().toLowerCase()
                 : "unknown";
 
-        return `${req.ip}:${email}`;
+        return `${ipKeyGenerator(req)}:${email}`;
     },
     message: {
         success: false,
