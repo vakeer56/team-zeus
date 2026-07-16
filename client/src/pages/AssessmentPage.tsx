@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
 import { 
   Play, 
   Clock, 
@@ -20,6 +20,12 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import evalixLogoWithoutText from '../assets/evalix-logo-without-text.png';
+
+loader.config({
+  paths: {
+    vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs'
+  }
+});
 
 interface TestCase {
   id: number;
@@ -58,7 +64,7 @@ interface QueueTask {
   code: string;
   testCases: TestCase[];
   onStart: () => void;
-  onSuccess: (results: TestCase[]) => void;
+  onSuccess: (results: TestCase[], debugStdout: string) => void;
   onFailure: (error: string) => void;
 }
 
@@ -75,6 +81,9 @@ export const AssessmentPage: React.FC = () => {
   const [securityScore, setSecurityScore] = useState(100);
   const [hasRun, setHasRun] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState<'Accepted' | 'Wrong Answer' | 'Runtime Error' | 'Security Block' | null>(null);
+
+  // Debug Console stdout logs state
+  const [consoleOutput, setConsoleOutput] = useState<string | null>(null);
 
   // Security warning overlay state
   const [securityViolation, setSecurityViolation] = useState<string | null>(null);
@@ -154,7 +163,7 @@ export const AssessmentPage: React.FC = () => {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            compiler: "cpython-3.10.2",
+            compiler: "cpython-3.10.15",
             code: task.code,
             options: ""
           })
@@ -175,6 +184,7 @@ export const AssessmentPage: React.FC = () => {
         const successIdx = stdout.indexOf("EVAL_SUCCESS");
         
         if (successIdx !== -1) {
+          const debugStdout = stdout.substring(0, successIdx).trim();
           const lines = stdout.split('\n');
           const resultsLine = lines.find((l: string) => l.startsWith('[') && l.endsWith(']'));
           
@@ -189,7 +199,7 @@ export const AssessmentPage: React.FC = () => {
                 status: (passed ? 'passed' : 'failed') as any
               };
             });
-            task.onSuccess(verifiedResults);
+            task.onSuccess(verifiedResults, debugStdout);
           } else {
             throw new Error("Unable to parse testcase outputs from execution stream.");
           }
@@ -256,10 +266,12 @@ except Exception as _e:
         setIsRunning(true);
         setConsoleOpen(true);
         setConsoleTab('result');
+        setConsoleOutput(null);
         setTestCases((prev) => prev.map((tc) => ({ ...tc, status: 'running', actual: undefined, error: undefined })));
       },
-      onSuccess: (results) => {
+      onSuccess: (results, debugStdout) => {
         setTestCases(results);
+        setConsoleOutput(debugStdout || null);
         setHasRun(true);
         setSubmissionStatus(results.every(t => t.status === 'passed') ? 'Accepted' : 'Wrong Answer');
         setIsRunning(false);
@@ -271,6 +283,7 @@ except Exception as _e:
           status: 'failed' as any,
           error: errorMsg.trim()
         }));
+        setConsoleOutput(null);
         setTestCases(updated);
         setHasRun(true);
         setSubmissionStatus('Runtime Error');
@@ -654,6 +667,15 @@ except Exception as _e:
                           </div>
                         ) : (
                           <>
+                            {consoleOutput && (
+                              <div className="space-y-1.5 mb-4 animate-fade-in">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">Stdout Logs</span>
+                                <pre className="p-3 bg-[#131313] border border-[#2d2d2d] rounded-lg font-mono text-xs text-orange-200/90 max-h-[100px] overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                                  {consoleOutput}
+                                </pre>
+                              </div>
+                            )}
+
                             <div className="flex gap-2 border-b border-[#333] pb-2">
                               {testCases.map((tc) => (
                                 <button
