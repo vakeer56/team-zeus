@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const proctorRoutes = require('./routes/proctorRoutes');
@@ -11,6 +12,7 @@ const ApiError = require('./utils/ApiError');
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 app.use(authRoutes);
 app.use('/submissions', submissionRoutes);

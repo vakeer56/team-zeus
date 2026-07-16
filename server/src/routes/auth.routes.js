@@ -6,6 +6,8 @@ const {
     login,
     verifyEmail,
     getMe,
+    updateProfile,
+    createRecruiter,
 } = require("../controllers/auth.controller");
 const ApiError = require("../utils/ApiError");
 
@@ -29,11 +31,19 @@ const authenticate = (req, res, next) => {
     }
 };
 
+const requireRecruiter = (req, res, next) => {
+    if (!req.user || req.user.role !== 'recruiter') {
+        return res.status(403).json({ success: false, message: "Recruiter privilege required." });
+    }
+    next();
+};
+
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 8,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { default: false },
     keyGenerator: (req) => {
         const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "unknown";
         return `${req.ip}:${email}`;
@@ -49,6 +59,7 @@ const registerLimiter = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { default: false },
     keyGenerator: (req) => req.ip,
     message: {
         success: false,
@@ -60,5 +71,7 @@ router.post("/register", registerLimiter, register);
 router.post("/login", loginLimiter, login);
 router.get("/me", authenticate, getMe);
 router.get("/verify-email/:token", verifyEmail);
+router.put("/update-profile", authenticate, updateProfile);
+router.post("/create-recruiter", authenticate, requireRecruiter, createRecruiter);
 
 module.exports = router;

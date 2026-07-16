@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -31,7 +31,7 @@ const features = [
   },
   {
     title: 'AI Proctoring',
-    description: 'Multi-modal behavioral monitoring checking tabs, devices, dual camera feeds, and ambient audio.',
+    description: 'Behavioral monitoring checking tab focus status, browser window switching, and keyboard shortcuts.',
     icon: Eye,
     color: 'from-indigo-500 to-blue-500',
     glow: 'rgba(99, 102, 241, 0.15)'
@@ -83,6 +83,19 @@ const steps = [
 ];
 
 export const LandingPage: React.FC = () => {
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('evalix_user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        setUser(null);
+      }
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#030712] pt-24 pb-20 relative overflow-hidden bg-grid-pattern">
       {/* Background radial glow */}
@@ -114,10 +127,10 @@ export const LandingPage: React.FC = () => {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 pt-2">
             <Link 
-              to="/login-select"
+              to={user ? (user.role === 'recruiter' ? '/recruiter-dashboard' : '/candidate-dashboard') : '/login'}
               className="px-8 py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl font-semibold shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-all duration-300 flex items-center justify-center gap-2 group hover:scale-[1.02]"
             >
-              Get Started
+              {user ? 'Go to Dashboard' : 'Get Started'}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a 

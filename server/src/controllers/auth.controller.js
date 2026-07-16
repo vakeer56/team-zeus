@@ -47,11 +47,12 @@ const register = async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const verificationToken = crypto.randomBytes(32).toString("hex");
 
+        const isRecruiter = normalizedEmail.endsWith("@recruiter.evalix.com");
         const user = await User.create({
             name,
             email: normalizedEmail,
             password: hashedPassword,
-            role: "candidate",
+            role: isRecruiter ? "recruiter" : "candidate",
             isVerified: false,
             verificationToken,
         });
@@ -149,9 +150,97 @@ const getMe = async (req, res, next) => {
     }
 };
 
+const updateProfile = async (req, res, next) => {
+    try {
+        const { name, email, password } = req.body;
+        const userId = req.user.id;
+
+        const user = await User.findById(userId).select("+password");
+        if (!user) {
+            throw new ApiError(404, "User profile not found");
+        }
+
+        if (name) user.name = name;
+        if (email) {
+            const normalizedEmail = email.toLowerCase();
+            if (normalizedEmail !== user.email) {
+                const existingUser = await User.findOne({ email: normalizedEmail });
+                if (existingUser) {
+                    throw new ApiError(400, "Email is already taken by another user");
+                }
+                user.email = normalizedEmail;
+            }
+        }
+        if (password) {
+            user.password = await bcrypt.hash(password, 10);
+        }
+
+        await user.save();
+
+        const token = generateToken({
+            id: user._id,
+            role: user.role,
+        });
+
+        res.status(200).json({
+            success: true,
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+const createRecruiter = async (req, res, next) => {
+    try {
+        const { name, email, password } = parseBody(registerSchema, req.body);
+        const normalizedEmail = email.toLowerCase();
+
+        // Enforce recruiter email domain check
+        const isRecruiterDomain = normalizedEmail.endsWith("@recruiter.evalix.com");
+        if (!isRecruiterDomain) {
+            throw new ApiError(400, "Authorized recruiters must use '@recruiter.evalix.com' emails.");
+        }
+
+        const existingUser = await User.findOne({ email: normalizedEmail });
+        if (existingUser) {
+            throw new ApiError(400, "Email already registered");
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = await User.create({
+            name,
+            email: normalizedEmail,
+            password: hashedPassword,
+            role: "recruiter",
+            isVerified: true
+        });
+
+        res.status(201).json({
+            success: true,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+            },
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     register,
     login,
     verifyEmail,
     getMe,
+    updateProfile,
+    createRecruiter,
 };

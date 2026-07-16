@@ -1,16 +1,58 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Briefcase, Mail, Lock, ArrowLeft, BarChart3, TrendingUp, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const RecruiterLoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const isRecruiterEmail = (emailStr: string) => {
+    const domain = emailStr.trim().toLowerCase();
+    return domain.endsWith('@recruiter.exalix.com') || domain.endsWith('@recruiter.evalix.com');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success(`Recruiter Session Started: ${email}`);
+    setIsLoading(true);
+
+    if (!isRecruiterEmail(email)) {
+      toast.error("Authorized recruiters must use '@recruiter.exalix.com' or '@recruiter.evalix.com' emails.", {
+        duration: 5000,
+        style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:3000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Invalid recruiter credentials");
+      }
+
+      localStorage.setItem('evalix_auth_token', data.token);
+      localStorage.setItem('evalix_user', JSON.stringify(data.user));
+
+      toast.success("Recruiter Command Console unlocked successfully.");
+      navigate('/recruiter-dashboard');
+    } catch (err: any) {
+      toast.error(err.message || "Authentication gateway returned failure");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -18,6 +60,7 @@ export const RecruiterLoginPage: React.FC = () => {
   };
 
   return (
+
     <div className="min-h-screen bg-[#030712] flex relative overflow-hidden">
       {/* Background Neon Elements */}
       <div className="absolute top-1/2 left-[10%] w-[35%] h-[35%] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
@@ -104,9 +147,10 @@ export const RecruiterLoginPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-4 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all duration-300 shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.99] cursor-pointer"
+                disabled={isLoading}
+                className="w-full py-4 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-all duration-300 shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.99] cursor-pointer"
               >
-                Sign In to Workspace
+                {isLoading ? "Signing In to Secure Workspace..." : "Sign In to Workspace"}
               </button>
             </form>
 

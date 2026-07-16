@@ -42,6 +42,28 @@ interface TestCase {
   error?: string;
 }
 
+const initialTestCases: TestCase[] = [
+  { id: 1, input: 's = "abcabcbb"', expected: '3', status: 'idle' },
+  { id: 2, input: 's = "bbbbb"', expected: '1', status: 'idle' },
+  { id: 3, input: 's = "pwwkew"', expected: '3', status: 'idle' },
+  { id: 4, input: 's = ""', expected: '0', status: 'idle' },
+];
+
+const pythonTemplate = `class Solution:
+    def lengthOfLongestSubstring(self, s: str) -> int:
+        # Write your Python 3 code here
+        char_map = {}
+        max_length = 0
+        start = 0
+        
+        for end, char in enumerate(s):
+            if char in char_map and char_map[char] >= start:
+                start = char_map[char] + 1
+            char_map[char] = end
+            max_length = max(max_length, end - start + 1)
+            
+        return max_length`;
+
 interface Question {
   id: string;
   title: string;
@@ -51,6 +73,9 @@ interface Question {
   mcqQuestion?: string;
   options?: string[];
   selectedOption?: number; // 0-indexed index of selected option
+  starterCode?: string;
+  testCases?: any[];
+  correctOptionIndex?: number;
 }
 
 const initialQuestions: Question[] = [
@@ -101,31 +126,13 @@ const initialQuestions: Question[] = [
     title: '4. Non-Repeating Substring',
     type: 'coding',
     points: 150,
-    completed: false
+    completed: false,
+    starterCode: pythonTemplate,
+    testCases: initialTestCases
   }
 ];
 
-const initialTestCases: TestCase[] = [
-  { id: 1, input: 's = "abcabcbb"', expected: '3', status: 'idle' },
-  { id: 2, input: 's = "bbbbb"', expected: '1', status: 'idle' },
-  { id: 3, input: 's = "pwwkew"', expected: '3', status: 'idle' },
-  { id: 4, input: 's = ""', expected: '0', status: 'idle' },
-];
 
-const pythonTemplate = `class Solution:
-    def lengthOfLongestSubstring(self, s: str) -> int:
-        # Write your Python 3 code here
-        char_map = {}
-        max_length = 0
-        start = 0
-        
-        for end, char in enumerate(s):
-            if char in char_map and char_map[char] >= start:
-                start = char_map[char] + 1
-            char_map[char] = end
-            max_length = max(max_length, end - start + 1)
-            
-        return max_length`;
 
 interface QueueTask {
   id: string;
@@ -164,6 +171,12 @@ const decryptData = (ciphertext: string): any => {
 export const AssessmentPage: React.FC = () => {
   const navigate = useNavigate();
   
+  // Proctoring States
+  const [isStarted, setIsStarted] = useState(false);
+  const [isDisqualified, setIsDisqualified] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+
   // Overall exam states
   const [questions, setQuestions] = useState<Question[]>(initialQuestions);
   const [currentQuestionId, setCurrentQuestionId] = useState<string>('mcq-1');
@@ -181,11 +194,21 @@ export const AssessmentPage: React.FC = () => {
   const [activeTestCaseId, setActiveTestCaseId] = useState<number>(1);
   const [securityScore, setSecurityScore] = useState(100);
   const [hasRun, setHasRun] = useState(false);
-  const [submissionStatus, setSubmissionStatus] = useState<'Accepted' | 'Wrong Answer' | 'Runtime Error' | 'Security Block' | null>(null);
+  const [submissionStatus, setSubmissionStatus] = useState<'Accepted' | 'Wrong Answer' | 'Runtime Error' | 'Security Block' | 'Disqualified' | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string | null>(null);
   const [securityViolation, setSecurityViolation] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [examBreakdown, setExamBreakdown] = useState({
+    mcqScore: 0,
+    mcqMax: 0,
+    codingScore: 0,
+    codingMax: 0,
+    integrityScore: 100,
+    totalScore: 0,
+    totalMax: 0
+  });
   const [focusWarning, setFocusWarning] = useState(false);
 
   // Clock state
@@ -198,6 +221,150 @@ export const AssessmentPage: React.FC = () => {
   const [queueLength, setQueueLength] = useState(0);
   const [queueStatus, setQueueStatus] = useState<string>('Idle');
 
+  // References to handle closures securely in listeners
+  const isStartedRef = React.useRef(isStarted);
+  const isDisqualifiedRef = React.useRef(isDisqualified);
+  const tabSwitchCountRef = React.useRef(tabSwitchCount);
+  const submissionIdRef = React.useRef(submissionId);
+  const securityScoreRef = React.useRef(securityScore);
+
+  React.useEffect(() => {
+    isStartedRef.current = isStarted;
+  }, [isStarted]);
+
+  React.useEffect(() => {
+    isDisqualifiedRef.current = isDisqualified;
+  }, [isDisqualified]);
+
+  React.useEffect(() => {
+    tabSwitchCountRef.current = tabSwitchCount;
+  }, [tabSwitchCount]);
+
+  React.useEffect(() => {
+    submissionIdRef.current = submissionId;
+  }, [submissionId]);
+
+  React.useEffect(() => {
+    securityScoreRef.current = securityScore;
+  }, [securityScore]);
+
+  const startSecureSubmission = async () => {
+    try {
+      const token = localStorage.getItem('evalix_auth_token');
+      const currentTestObj = localStorage.getItem('evalix_current_test');
+      if (!currentTestObj) {
+        toast.error("No active secure test configuration found.");
+        return;
+      }
+      const test = JSON.parse(currentTestObj);
+      const response = await fetch("http://localhost:3000/submissions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ assessmentId: test._id })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSubmissionId(data.submission._id);
+        if (data.submission.status === 'submitted' || data.submission.status === 'evaluated') {
+          setIsDisqualified(true);
+          toast.error("You have already submitted this assessment.");
+        }
+      } else {
+        throw new Error(data.message || "Failed to initialize secure session");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Security session initialization failed.");
+    }
+  };
+
+  const recordProctorEvent = async (eventType: string, metadata: any = {}) => {
+    try {
+      const currentSubId = submissionIdRef.current;
+      if (!currentSubId) return;
+      const token = localStorage.getItem('evalix_auth_token');
+      await fetch(`http://localhost:3000/proctor/submissions/${currentSubId}/proctor-event`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ eventType, metadata })
+      });
+    } catch (err) {
+      console.error("Proctor event upload failure:", err);
+    }
+  };
+
+  const syncSubmissionToBackend = async (finalStatus: string = 'submitted') => {
+    try {
+      const currentSubId = submissionIdRef.current;
+      if (!currentSubId) return;
+      const token = localStorage.getItem('evalix_auth_token');
+
+      // Calculate scores
+      let mcqScore = 0;
+      questions.forEach(q => {
+        if (q.type === 'mcq') {
+          let isCorrect = false;
+          if (q.correctOptionIndex !== undefined) {
+            isCorrect = q.selectedOption === q.correctOptionIndex;
+          } else {
+            if (q.id === 'mcq-1') isCorrect = q.selectedOption === 2;
+            if (q.id === 'mcq-2') isCorrect = q.selectedOption === 1;
+            if (q.id === 'mcq-3') isCorrect = q.selectedOption === 1;
+          }
+          if (isCorrect) mcqScore += q.points;
+        }
+      });
+
+      const formattedAnswers = questions.map(q => ({
+        questionId: q.id.includes('-') ? "6a588dfb315654fbef121e04" : q.id, // safe ObjectID fallback if mock format
+        answer: q.type === 'mcq' ? String(q.selectedOption ?? '') : q.starterCode || '',
+        isCorrect: q.type === 'mcq' ? (q.selectedOption === q.correctOptionIndex) : false,
+        scoreAwarded: q.type === 'mcq' ? (q.selectedOption === q.correctOptionIndex ? q.points : 0) : 0
+      }));
+
+      const body = {
+        answers: formattedAnswers,
+        totalScore: mcqScore,
+        status: finalStatus,
+        aiReport: {
+          riskScore: 100 - securityScoreRef.current,
+          flags: [
+            { type: 'violations', count: tabSwitchCountRef.current, severity: tabSwitchCountRef.current > 1 ? 'high' : 'medium' }
+          ]
+        }
+      };
+
+      await fetch(`http://localhost:3000/submissions/${currentSubId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+    } catch (err) {
+      console.error("Failed to sync submission to DB:", err);
+    }
+  };
+
+  const handleDisqualification = async () => {
+    setIsDisqualified(true);
+    setSubmissionStatus('Disqualified');
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    await syncSubmissionToBackend('evaluated');
+    localStorage.removeItem('evalix_exam_progress_secure');
+    localStorage.removeItem('evalix_current_test');
+    toast.error("🚨 You have been disqualified from this test.", { duration: 8000 });
+  };
+
   // 1. Viewport screen-size restriction
   useEffect(() => {
     const checkDevice = () => {
@@ -208,8 +375,34 @@ export const AssessmentPage: React.FC = () => {
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
-  // 2. Load progress securely from LocalStorage on mount
+  // 2. Load progress securely from LocalStorage and dynamic test schema on mount
   useEffect(() => {
+    let initialMappedQuestions: Question[] = [];
+    const rawTest = localStorage.getItem('evalix_current_test');
+    if (rawTest) {
+      try {
+        const test = JSON.parse(rawTest);
+        if (test && test.questions && test.questions.length > 0) {
+          initialMappedQuestions = test.questions.map((q: any, idx: number) => {
+            const isMcq = q.type === 'mcq';
+            return {
+              id: isMcq ? `mcq-${idx}` : `coding-${idx}`,
+              title: `${idx + 1}. ${isMcq ? 'Multiple Choice' : 'Sandbox Assignment'}`,
+              type: q.type,
+              points: q.marks || (isMcq ? 10 : 20),
+              completed: false,
+              mcqQuestion: isMcq ? q.text : undefined,
+              options: isMcq ? q.options : undefined,
+              starterCode: !isMcq ? q.starterCode : undefined,
+              testCases: !isMcq ? q.testCases : undefined
+            };
+          });
+        }
+      } catch (err) {
+        console.error("Error mapping dynamic test:", err);
+      }
+    }
+
     const savedState = localStorage.getItem('evalix_exam_progress_secure');
     if (savedState) {
       const decoded = decryptData(savedState);
@@ -223,6 +416,23 @@ export const AssessmentPage: React.FC = () => {
         const activeQ = decoded.questions.find((q: Question) => q.id === currentQuestionId);
         if (activeQ && activeQ.selectedOption !== undefined) {
           setSelectedOption(activeQ.selectedOption);
+        }
+      }
+    } else if (initialMappedQuestions.length > 0) {
+      setQuestions(initialMappedQuestions);
+      setCurrentQuestionId(initialMappedQuestions[0].id);
+      
+      const firstQ = initialMappedQuestions[0];
+      if (firstQ.type === 'coding') {
+        setCode(firstQ.starterCode || pythonTemplate);
+        if (firstQ.testCases) {
+          const tc = firstQ.testCases.map((c: any, cIdx: number) => ({
+            id: cIdx + 1,
+            input: c.input,
+            expected: c.expectedOutput,
+            status: 'idle' as 'idle'
+          }));
+          setTestCases(tc);
         }
       }
     }
@@ -264,58 +474,93 @@ export const AssessmentPage: React.FC = () => {
   // Sync selectedOption when switching questions
   useEffect(() => {
     const currentQ = questions.find(q => q.id === currentQuestionId);
-    if (currentQ && currentQ.type === 'mcq') {
-      setSelectedOption(currentQ.selectedOption !== undefined ? currentQ.selectedOption : null);
+    if (currentQ) {
+      if (currentQ.type === 'mcq') {
+        setSelectedOption(currentQ.selectedOption !== undefined ? currentQ.selectedOption : null);
+      } else if (currentQ.type === 'coding') {
+        setCode(currentQ.starterCode || pythonTemplate);
+        if (currentQ.testCases) {
+          const tc = currentQ.testCases.map((c: any, cIdx: number) => ({
+            id: cIdx + 1,
+            input: c.input,
+            expected: c.expectedOutput || c.expected,
+            status: 'idle' as 'idle'
+          }));
+          setTestCases(tc);
+        }
+      }
     }
-  }, [currentQuestionId, questions]);
+  }, [currentQuestionId]);
 
   // --- EXAM INTEGRITY & ANTI-CHEAT SHIELD ---
   useEffect(() => {
-    // Helper to dock security score and fire toast warning
-    const dockScore = (reason: string, amount: number = 10) => {
-      setSecurityScore(prev => {
-        const next = Math.max(0, prev - amount);
-        toast.error(`⚠️ Integrity Violation: ${reason}. Score docked.`, {
-          duration: 4000,
-          style: {
-            background: '#1a0a0a',
-            border: '1px solid #7f1d1d',
-            color: '#fca5a5'
-          }
+    if (!isStarted || isDisqualified) return;
+
+    // Helper to dock security score
+    const dockScore = (amount: number = 10) => {
+      setSecurityScore(prev => Math.max(0, prev - amount));
+    };
+
+    // Generic violation handler (tab switches, window focus losses, fullscreen exits)
+    const handleViolation = (reason: string, type: 'tab_switch' | 'window_blur' | 'fullscreen_exit', amount = 15) => {
+      if (isDisqualifiedRef.current) return;
+
+      const nextCount = tabSwitchCountRef.current + 1;
+      setTabSwitchCount(nextCount);
+      dockScore(amount);
+      
+      // Upload telemetry event to backend DB in real time
+      recordProctorEvent(type, { reason, violationNumber: nextCount });
+
+      if (nextCount === 1) {
+        setShowWarningModal(true);
+        toast.error(`⚠️ Proctor Warning: ${reason} logged. Second violation will disqualify you!`, {
+          duration: 6000,
+          style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
         });
-        return next;
-      });
+      } else if (nextCount >= 2) {
+        handleDisqualification();
+      }
     };
 
     // 1. Block right-click context menu
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      dockScore('Right-click blocked');
+      recordProctorEvent('right_click', { reason: 'Right click attempt' });
+      toast.error('⚠️ Right-click is disabled in secure exam sandbox.', { duration: 3000 });
     };
 
-    // 2. Block copy / cut / paste events globally (capture phase = fires before Monaco)
+    // 2. Block copy / cut / paste events globally (with unlimited attempts, toast alert, no DQ)
     const handleCopy = (e: ClipboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      dockScore('Copy attempt detected');
+      recordProctorEvent('copy_attempt', { reason: 'Copy attempt' });
+      toast.error('⚠️ Clipboard Action Blocked: Copying is disabled.', { duration: 3000 });
     };
     const handleCut = (e: ClipboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      dockScore('Cut attempt detected');
+      recordProctorEvent('copy_attempt', { reason: 'Cut attempt' });
+      toast.error('⚠️ Clipboard Action Blocked: Cutting is disabled.', { duration: 3000 });
     };
     const handlePaste = (e: ClipboardEvent) => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      dockScore('Paste attempt detected');
+      recordProctorEvent('paste_attempt', { reason: 'Paste attempt' });
+      toast.error('⚠️ Clipboard Action Blocked: Pasting is disabled.', { duration: 3000 });
     };
 
     // 3. Block DevTools keyboard shortcuts + Ctrl+V paste at keyboard level
     const handleKeyDown = (e: KeyboardEvent) => {
       const isPaste = (e.ctrlKey || e.metaKey) && e.key.toUpperCase() === 'V';
+      const isCopy = (e.ctrlKey || e.metaKey) && e.key.toUpperCase() === 'C';
+      const isCut = (e.ctrlKey || e.metaKey) && e.key.toUpperCase() === 'X';
+      
       const blocked =
         e.key === 'F12' ||
         isPaste ||
+        isCopy ||
+        isCut ||
         (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'K', 'U'].includes(e.key.toUpperCase())) ||
         (e.metaKey && e.altKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
         (e.ctrlKey && e.key.toUpperCase() === 'U');
@@ -324,9 +569,14 @@ export const AssessmentPage: React.FC = () => {
         e.preventDefault();
         e.stopImmediatePropagation();
         if (isPaste) {
-          dockScore('Paste attempt detected (Ctrl+V)');
+          recordProctorEvent('paste_attempt', { reason: 'Ctrl+V paste attempt' });
+          toast.error('⚠️ Clipboard Action Blocked: Pasting is disabled.', { duration: 3000 });
+        } else if (isCopy || isCut) {
+          recordProctorEvent('copy_attempt', { reason: 'Keyboard copy attempt' });
+          toast.error('⚠️ Clipboard Action Blocked: Copying/cutting is disabled.', { duration: 3000 });
         } else {
-          dockScore(`DevTools shortcut blocked (${e.key})`);
+          recordProctorEvent('suspicious_activity', { reason: `DevTools keyboard shortcut: ${e.key}` });
+          toast.error('⚠️ DevTools shortcuts are disabled in secure exam sandbox.', { duration: 3000 });
         }
       }
     };
@@ -341,7 +591,9 @@ export const AssessmentPage: React.FC = () => {
 
       if (isOpen && !devToolsOpen) {
         devToolsOpen = true;
-        dockScore('DevTools panel detected open', 20);
+        dockScore(20);
+        recordProctorEvent('suspicious_activity', { reason: 'DevTools panel open detected' });
+        toast.error('⚠️ Secure sandbox alert: DevTools panel detected.', { duration: 4000 });
       } else if (!isOpen) {
         devToolsOpen = false;
       }
@@ -350,35 +602,18 @@ export const AssessmentPage: React.FC = () => {
     // 5. Tab switch detection via Page Visibility API
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setTabSwitchCount(prev => {
-          const next = prev + 1;
-          toast.error(`🚨 Tab switch #${next} detected! Proctor has been notified.`, {
-            duration: 5000,
-            style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
-          });
-          dockScore('Tab switch / window hidden', 15);
-          return next;
-        });
+        handleViolation('Tab switch or hidden browser window', 'tab_switch', 15);
         setFocusWarning(true);
       } else {
         setFocusWarning(false);
       }
     };
 
-    // 6. Window blur detection (Alt+Tab, browser minimize, other app focus)
+    // 6. Window blur detection (Alt+Tab, minimize, etc)
     let blurTimeout: ReturnType<typeof setTimeout>;
     const handleWindowBlur = () => {
-      // Small delay to avoid false positives from devtools docking
       blurTimeout = setTimeout(() => {
-        setTabSwitchCount(prev => {
-          const next = prev + 1;
-          toast.error(`🚨 Window focus lost (switch #${next}). Proctor alerted.`, {
-            duration: 5000,
-            style: { background: '#1a0a0a', border: '1px solid #7f1d1d', color: '#fca5a5' }
-          });
-          dockScore('Window focus lost (Alt+Tab / minimize)', 15);
-          return next;
-        });
+        handleViolation('Window lost focus (Alt+Tab / application minimize)', 'window_blur', 15);
         setFocusWarning(true);
       }, 300);
     };
@@ -388,13 +623,21 @@ export const AssessmentPage: React.FC = () => {
       setFocusWarning(false);
     };
 
-    // Attach all listeners (use capture:true on clipboard events to fire before Monaco)
+    // 7. Fullscreen exit detection
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isStartedRef.current && !isDisqualifiedRef.current) {
+        handleViolation('Exited secure fullscreen mode', 'fullscreen_exit', 20);
+      }
+    };
+
+    // Attach listeners
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('copy', handleCopy, true);
     document.addEventListener('cut', handleCut, true);
     document.addEventListener('paste', handlePaste, true);
     document.addEventListener('keydown', handleKeyDown, true);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
 
@@ -405,12 +648,13 @@ export const AssessmentPage: React.FC = () => {
       document.removeEventListener('paste', handlePaste, true);
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
       clearInterval(devToolsInterval);
       clearTimeout(blurTimeout);
     };
-  }, []);
+  }, [isStarted, isDisqualified]);
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -551,6 +795,69 @@ export const AssessmentPage: React.FC = () => {
       return;
     }
 
+    // Extract list of inputs
+    const casesListJson = JSON.stringify(testCases.map(tc => tc.input));
+
+    // Try to guess how to instantiate and invoke the code
+    let callSnippet = '';
+    const classMatch = code.match(/class\s+(\w+)/);
+    const defMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)/);
+
+    if (classMatch) {
+      const className = classMatch[1];
+      const methodName = defMatch ? defMatch[1] : 'solve';
+      callSnippet = `
+    _sol = ${className}()
+    for _c in _cases:
+        if "," in _c and "=" in _c:
+            _loc = {}
+            exec(_c, {}, _loc)
+            _val = getattr(_sol, "${methodName}")(**_loc)
+        elif "," in _c:
+            _args = eval("(" + _c + ")")
+            if isinstance(_args, tuple):
+                _val = getattr(_sol, "${methodName}")(*_args)
+            else:
+                _val = getattr(_sol, "${methodName}")(_args)
+        else:
+            try:
+                _parsed = eval(_c)
+            except:
+                _parsed = _c
+            _val = getattr(_sol, "${methodName}")(_parsed)
+        _results.append(_val)
+      `;
+    } else if (defMatch) {
+      const funcName = defMatch[1];
+      callSnippet = `
+    for _c in _cases:
+        if "," in _c and "=" in _c:
+            _loc = {}
+            exec(_c, {}, _loc)
+            _val = ${funcName}(**_loc)
+        elif "," in _c:
+            _args = eval("(" + _c + ")")
+            if isinstance(_args, tuple):
+                _val = ${funcName}(*_args)
+            else:
+                _val = ${funcName}(_args)
+        else:
+            try:
+                _parsed = eval(_c)
+            except:
+                _parsed = _c
+            _val = ${funcName}(_parsed)
+        _results.append(_val)
+      `;
+    } else {
+      callSnippet = `
+    _sol = Solution()
+    for _c in _cases:
+        _val = _sol.lengthOfLongestSubstring(_c)
+        _results.append(_val)
+      `;
+    }
+
     const executionCode = `
 import json
 import sys
@@ -559,13 +866,10 @@ import sys
 ${code}
 
 _results = []
-_cases = ["abcabcbb", "bbbbb", "pwwkew", ""]
+_cases = ${casesListJson}
 
 try:
-    _sol = Solution()
-    for _c in _cases:
-        _val = _sol.lengthOfLongestSubstring(_c)
-        _results.append(int(_val))
+${callSnippet}
     print("EVAL_SUCCESS")
     print(json.dumps(_results))
 except Exception as _e:
@@ -614,10 +918,177 @@ except Exception as _e:
     addToExecutionQueue(task);
   };
 
-  const submitAssessment = () => {
-    toast.success(`Assessment submitted! Final Integrity Score: ${securityScore}%`);
-    localStorage.removeItem('evalix_exam_progress_secure'); // Clear progress on successful submission
-    navigate('/');
+  const submitAssessment = async () => {
+    toast.loading("Running final verification cases... Please hold.", { id: "submit-exam" });
+
+    // 1. Run coding question compiler if available
+    let codingPassRatio = 1.0; 
+    const codingQ = questions.find(q => q.type === 'coding');
+
+    if (codingQ && testCases.length > 0) {
+      try {
+        const casesListJson = JSON.stringify(testCases.map(tc => tc.input));
+        let callSnippet = '';
+        const classMatch = code.match(/class\s+(\w+)/);
+        const defMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)/);
+
+        if (classMatch) {
+          const className = classMatch[1];
+          const methodName = defMatch ? defMatch[1] : 'solve';
+          callSnippet = `
+    _sol = ${className}()
+    for _c in _cases:
+        if "," in _c and "=" in _c:
+            _loc = {}
+            exec(_c, {}, _loc)
+            _val = getattr(_sol, "${methodName}")(**_loc)
+        elif "," in _c:
+            _args = eval("(" + _c + ")")
+            if isinstance(_args, tuple):
+                _val = getattr(_sol, "${methodName}")(*_args)
+            else:
+                _val = getattr(_sol, "${methodName}")(_args)
+        else:
+            try:
+                _parsed = eval(_c)
+            except:
+                _parsed = _c
+            _val = getattr(_sol, "${methodName}")(_parsed)
+        _results.append(_val)
+          `;
+        } else if (defMatch) {
+          const funcName = defMatch[1];
+          callSnippet = `
+    for _c in _cases:
+        if "," in _c and "=" in _c:
+            _loc = {}
+            exec(_c, {}, _loc)
+            _val = ${funcName}(**_loc)
+        elif "," in _c:
+            _args = eval("(" + _c + ")")
+            if isinstance(_args, tuple):
+                _val = ${funcName}(*_args)
+            else:
+                _val = ${funcName}(_args)
+        else:
+            try:
+                _parsed = eval(_c)
+            except:
+                _parsed = _c
+            _val = ${funcName}(_parsed)
+        _results.append(_val)
+          `;
+        }
+
+        const executionCode = `
+import json
+import sys
+
+${code}
+
+_results = []
+_cases = ${casesListJson}
+
+try:
+${callSnippet}
+    print("EVAL_SUCCESS")
+    print(json.dumps(_results))
+except Exception as _e:
+    print(f"RUNNER_ERROR: {_e}", file=sys.stderr)
+    raise _e
+        `;
+
+        const response = await fetch("https://wandbox.org/api/compile.json", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            compiler: "cpython-3.10.15",
+            code: executionCode,
+            options: ""
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const stdout = data.program_output || data.stdout || '';
+          const successIdx = stdout.indexOf("EVAL_SUCCESS");
+          if (successIdx !== -1) {
+            const lines = stdout.substring(successIdx).split('\n');
+            const resultsLine = lines.find((l: string) => l.trim().startsWith('[') && l.trim().endsWith(']'));
+            if (resultsLine) {
+              const resultsArray = JSON.parse(resultsLine);
+              let passed = 0;
+              testCases.forEach((tc, idx) => {
+                if (String(resultsArray[idx]) === tc.expected) {
+                  passed++;
+                }
+              });
+              codingPassRatio = passed / testCases.length;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Submission verification compile failed:", err);
+        codingPassRatio = 0;
+      }
+    }
+
+    // 2. Compute MCQ scores
+    let mcqScore = 0;
+    let mcqMax = 0;
+    
+    questions.forEach(q => {
+      if (q.type === 'mcq') {
+        mcqMax += q.points;
+        let isCorrect = false;
+        
+        if (q.correctOptionIndex !== undefined) {
+          isCorrect = q.selectedOption === q.correctOptionIndex;
+        } else {
+          if (q.id === 'mcq-1') isCorrect = q.selectedOption === 2;
+          if (q.id === 'mcq-2') isCorrect = q.selectedOption === 1;
+          if (q.id === 'mcq-3') isCorrect = q.selectedOption === 1;
+        }
+
+        if (isCorrect) {
+          mcqScore += q.points;
+        }
+      }
+    });
+
+    // 3. Compute Coding scores
+    let codingScore = 0;
+    let codingMax = 0;
+    questions.forEach(q => {
+      if (q.type === 'coding') {
+        codingMax += q.points;
+        codingScore += Math.round(codingPassRatio * q.points);
+      }
+    });
+
+    const totalScore = mcqScore + codingScore;
+    const totalMax = mcqMax + codingMax;
+
+    setExamBreakdown({
+      mcqScore,
+      mcqMax,
+      codingScore,
+      codingMax,
+      integrityScore: securityScore,
+      totalScore,
+      totalMax
+    });
+
+    toast.dismiss("submit-exam");
+    toast.success("Evaluation complete! Detailed scoreboard loaded.");
+
+    await syncSubmissionToBackend('submitted');
+    localStorage.removeItem('evalix_exam_progress_secure');
+    localStorage.removeItem('evalix_current_test');
+
+    setShowScoreModal(true);
   };
 
   // --- MOBILE DEVICE BLOCKING SCREEN ---
@@ -646,6 +1117,86 @@ except Exception as _e:
             className="w-full py-3.5 px-5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl text-sm font-semibold transition-all"
           >
             Return to Homepage
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isDisqualified) {
+    return (
+      <div className="min-h-screen bg-[#030712] flex flex-col justify-center items-center px-6 py-12 relative overflow-hidden bg-grid-pattern text-slate-100">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50%] h-[50%] rounded-full bg-rose-500/5 blur-[120px] pointer-events-none" />
+        
+        <div className="max-w-md w-full glass-panel border border-rose-500/20 p-8 rounded-3xl text-center space-y-6 relative z-10 shadow-2xl bg-[#140505]">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
+            <ShieldAlert className="w-8 h-8 animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-extrabold text-white font-['Outfit']">Test Session Disqualified</h1>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              You have been disqualified from this assessment due to multiple proctoring violations (tab switching, window focus loss, or fullscreen exits).
+            </p>
+            <p className="text-xs text-rose-500 font-medium">
+              Your logs have been transmitted to the recruiter control center.
+            </p>
+          </div>
+          <button 
+            onClick={() => navigate('/candidate-dashboard')}
+            className="w-full py-3.5 px-5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl text-sm font-semibold transition-all"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isStarted) {
+    return (
+      <div className="min-h-screen bg-[#030712] flex flex-col justify-center items-center px-6 py-12 relative overflow-hidden bg-grid-pattern text-slate-100">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50%] h-[50%] rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none" />
+        
+        <div className="max-w-lg w-full glass-panel border border-indigo-500/20 p-8 rounded-3xl space-y-6 relative z-10 shadow-2xl bg-[#090d1a]">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
+            <Lock className="w-8 h-8" />
+          </div>
+          
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-extrabold text-white font-['Outfit'] tracking-tight">Secure Proctoring Activation</h1>
+            <p className="text-xs text-slate-400">Please review the strict anti-cheating guidelines below before launching your secure test environment.</p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-900 space-y-4 text-xs leading-relaxed text-slate-300">
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 mt-1.5 rounded-full bg-indigo-500 shrink-0" />
+              <p><strong>Fullscreen Enforcement:</strong> Exiting fullscreen mode once the test begins is prohibited.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 mt-1.5 rounded-full bg-indigo-500 shrink-0" />
+              <p><strong>Focus Monitoring:</strong> Switching tabs or windows (e.g., using Alt-Tab, minimizing, opening other apps) is prohibited.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 mt-1.5 rounded-full bg-indigo-500 shrink-0" />
+              <p><strong>Clipboard Control:</strong> Copying, cutting, and pasting are monitored. Paste attempts show toast warnings.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 mt-1.5 rounded-full bg-rose-500 shrink-0" />
+              <p className="text-rose-400"><strong>Disqualification Policy:</strong> The first tab/window switch or fullscreen exit triggers a warning. A second occurrence will result in **immediate disqualification**.</p>
+            </div>
+          </div>
+
+          <button
+            onClick={async () => {
+              await startSecureSubmission();
+              document.documentElement.requestFullscreen().catch((err) => {
+                console.error("Fullscreen request failed:", err);
+              });
+              setIsStarted(true);
+            }}
+            className="w-full py-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg hover:shadow-indigo-500/20 active:scale-[0.99] cursor-pointer"
+          >
+            I Accept and Launch Secure Sandbox
           </button>
         </div>
       </div>
@@ -994,7 +1545,9 @@ except Exception as _e:
                       value={code}
                       onChange={(value) => {
                         setCode(value || '');
-                        saveStateSecurely(questions, value || '');
+                        const updated = questions.map(q => q.id === currentQuestionId ? { ...q, starterCode: value || '' } : q);
+                        setQuestions(updated);
+                        saveStateSecurely(updated, value || '');
                       }}
                       theme="vs-dark"
                       onMount={(editor) => {
@@ -1195,6 +1748,80 @@ except Exception as _e:
                 Reset
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showScoreModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex justify-center items-center z-50 animate-fade-in p-4">
+          <div className="glass-panel border border-[#333] p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl bg-[#090d1a]">
+            <div className="text-center space-y-1">
+              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Evaluation Complete
+              </span>
+              <h2 className="text-xl font-extrabold text-white font-['Outfit'] pt-2">Exam Score Report</h2>
+              <p className="text-xs text-slate-400">Your test answers have been processed and validated by the security sandbox compiler.</p>
+            </div>
+
+            {/* Scorecard grids */}
+            <div className="space-y-3 font-mono text-xs">
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-900">
+                <span className="text-slate-400">Multiple Choice Score:</span>
+                <span className="text-white font-bold">{examBreakdown.mcqScore} / {examBreakdown.mcqMax} pts</span>
+              </div>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-900">
+                <span className="text-slate-400">Coding Sandbox Score:</span>
+                <span className="text-white font-bold">{examBreakdown.codingScore} / {examBreakdown.codingMax} pts</span>
+              </div>
+              <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-900">
+                <span className="text-slate-400">Integrity Proctor Audit:</span>
+                <span className={`font-bold ${examBreakdown.integrityScore < 80 ? 'text-rose-400' : 'text-indigo-400'}`}>
+                  {examBreakdown.integrityScore}%
+                </span>
+              </div>
+              <div className="border-t border-[#222] my-2 pt-2 flex justify-between items-center text-sm font-bold">
+                <span className="text-white">Total Final Grade:</span>
+                <span className="text-emerald-400">{examBreakdown.totalScore} / {examBreakdown.totalMax} pts</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => navigate('/candidate-dashboard')}
+              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center cursor-pointer"
+            >
+              Return to Candidate Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex justify-center items-center z-50 animate-fade-in p-4">
+          <div className="glass-panel border border-rose-500/20 p-8 rounded-3xl max-w-md w-full space-y-6 shadow-2xl bg-[#1a0a0a]">
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
+              <AlertTriangle className="w-8 h-8 animate-bounce" />
+            </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-xl font-extrabold text-white font-['Outfit']">🚨 PROCTOR WARNING 🚨</h2>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                A focus loss, tab switch, or fullscreen exit has been logged. 
+              </p>
+              <p className="text-xs text-rose-400 font-bold leading-relaxed">
+                Warning: Any further violations will result in IMMEDIATE DISQUALIFICATION from this assessment.
+              </p>
+            </div>
+            <button 
+              onClick={() => {
+                setShowWarningModal(false);
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch((err) => {
+                    console.error("Re-entering fullscreen failed:", err);
+                  });
+                }
+              }}
+              className="w-full py-3.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center cursor-pointer"
+            >
+              I Understand, Resume Test
+            </button>
           </div>
         </div>
       )}

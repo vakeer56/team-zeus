@@ -10,7 +10,7 @@ async function seed() {
   await mongoose.connect(process.env.DB_URL);
 
   // Clean slate for repeatable testing
-  await User.deleteMany({ email: /test|exalix/ });
+  await User.deleteMany({ email: /test|evalix/ });
   await Submission.deleteMany({});
   await Assessment.deleteMany({});
 
@@ -32,9 +32,9 @@ async function seed() {
 
   const recruiter = await User.create({
     name: "Recruiter Admin",
-    email: "recruiter@recruiter.exalix.com",
+    email: "recruiter@recruiter.evalix.com",
     password: hashedPassword,
-    role: "admin",
+    role: "recruiter",
   });
 
   const assessment = await Assessment.create({
