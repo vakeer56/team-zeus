@@ -1,5 +1,6 @@
 // scripts/seed.js
 const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 const User = require("../models/user.model");
 const Assessment = require("../models/assessment.model");
 const Submission = require("../models/submission.model");
@@ -9,34 +10,36 @@ async function seed() {
   await mongoose.connect(process.env.DB_URL);
 
   // Clean slate for repeatable testing
-  await User.deleteMany({ email: /test/ });
+  await User.deleteMany({ email: /test|exalix/ });
   await Submission.deleteMany({});
   await Assessment.deleteMany({});
+
+  const hashedPassword = await bcrypt.hash("password123", 10);
 
   const candidate = await User.create({
     name: "Test Candidate",
     email: "candidate@test.com",
-    password: "dummyhash", // not used for login yet, so plaintext is fine for now
+    password: hashedPassword,
     role: "candidate",
   });
 
   const attacker = await User.create({
     name: "Other Candidate",
     email: "attacker@test.com",
-    password: "dummyhash",
+    password: hashedPassword,
     role: "candidate",
   });
 
-  const admin = await User.create({
-    name: "Test Admin",
-    email: "admin@test.com",
-    password: "dummyhash",
+  const recruiter = await User.create({
+    name: "Recruiter Admin",
+    email: "recruiter@recruiter.exalix.com",
+    password: hashedPassword,
     role: "admin",
   });
 
   const assessment = await Assessment.create({
     title: "Test Assessment",
-    createdBy: admin._id,
+    createdBy: recruiter._id,
     durationMinutes: 60,
     questions: [
       { type: "mcq", text: "2+2?", marks: 1, options: ["3", "4"], correctOptionIndex: 1 },
@@ -53,7 +56,7 @@ async function seed() {
 
   console.log("candidateId:", candidate._id.toString());
   console.log("attackerId (wrong owner):", attacker._id.toString());
-  console.log("adminId:", admin._id.toString());
+  console.log("recruiterId:", recruiter._id.toString());
   console.log("submissionId:", submission._id.toString());
 
   process.exit(0);
