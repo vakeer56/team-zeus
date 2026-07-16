@@ -24,27 +24,7 @@ router.post(
 );
 
 // Get Assessments
-router.get("/assessments", authenticate, async (req, res, next) => {
-  try {
-    // If the requester is candidate, only show published ones. If recruiter/admin, show all.
-    let query = {};
-    if (req.user.role === "candidate") {
-      query = {
-        $or: [
-          { status: "published" },
-          { isActive: true }
-        ]
-      };
-    }
-    const assessments = await Assessment.find(query).sort({ createdAt: -1 });
-    res.status(200).json({
-      success: true,
-      assessments
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+router.get("/assessments", authenticate, getAssessments);
 
 // Toggle Active / Make Live
 router.put('/assessments/:id/make-live', authenticate, authorize("admin", "recruiter"), async (req, res, next) => {
