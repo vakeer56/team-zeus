@@ -369,7 +369,7 @@ export const CandidateDashboard: React.FC = () => {
                         <div className="space-y-1">
                           <h3 className="text-lg font-bold text-white font-['Outfit']">{a.title}</h3>
                           <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
-                            {a.description || 'Seeded test assessment to verify portal environment.'}
+                            {a.description || 'No description provided.'}
                           </p>
                         </div>
 
@@ -420,25 +420,8 @@ export const CandidateDashboard: React.FC = () => {
                 })}
 
                 {assessments.length === 0 && (
-                  <div className="relative overflow-hidden p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-[#0d071f]/60 to-[#030712]/80 flex flex-col sm:flex-row justify-between sm:items-center gap-6 shadow-xl">
-                    <div className="space-y-3.5">
-                      <div className="flex items-center gap-3">
-                        <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 text-[10px] font-bold border border-indigo-500/20 font-mono uppercase">
-                          Python 3 Sandbox
-                        </span>
-                        <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                          <Clock className="w-3.5 h-3.5" />
-                          90 mins
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-bold text-white font-['Outfit'] font-extrabold">Test Assessment</h3>
-                        <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
-                          Seeded test assessment to verify portal environment.
-                        </p>
-                      </div>
-                    </div>
+                  <div className="text-center py-16 text-slate-500 text-xs font-semibold">
+                    No active assessments available. Please check back later.
                   </div>
                 )}
               </div>
