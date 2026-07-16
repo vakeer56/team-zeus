@@ -70,7 +70,12 @@ router.put('/:id/make-live', async (req, res, next) => {
 // Get all Assessments
 router.get('/', async (req, res, next) => {
   try {
-    const assessments = await Assessment.find({ isActive: true }).sort({ createdAt: -1 });
+    const assessments = await Assessment.find({
+      $or: [
+        { status: "published" },
+        { isActive: true }
+      ]
+    }).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       assessments
