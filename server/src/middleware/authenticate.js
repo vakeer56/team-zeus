@@ -41,20 +41,8 @@ const authenticate = (req, _res, next) => {
         req.user = decoded;
         return next();
     } catch (err) {
-        // jwt.verify throws JsonWebTokenError, TokenExpiredError, NotBeforeError.
-        // Wrap them all in a 401 ApiError so the global handler shapes the
-        // response identically regardless of which JWT error was raised.
-        if (
-            err.name === "TokenExpiredError" ||
-            err.name === "JsonWebTokenError" ||
-            err.name === "NotBeforeError"
-        ) {
-            return next(new ApiError(401, "Unauthorized"));
-        }
-
-        // Unexpected error (e.g. bad JWT_SECRET config) — let the global
-        // handler return 500 while logging the real cause server-side.
-        return next(err);
+        console.log(err);
+        return next(new ApiError(401, "Unauthorized"));
     }
 };
 
