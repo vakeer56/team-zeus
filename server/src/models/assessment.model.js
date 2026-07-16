@@ -1,78 +1,52 @@
-// models/Assessment.js
 const mongoose = require("mongoose");
 
 const testCaseSchema = new mongoose.Schema(
-  {
-    input: { type: String, required: true },
-    expectedOutput: { type: String, required: true },
-    isHidden: { type: Boolean, default: false },
-  },
-  { _id: true },
+    {
+        input: { type: String, required: true, trim: true },
+        expectedOutput: { type: String, required: true, trim: true },
+    },
+    { _id: true },
 );
 
 const questionSchema = new mongoose.Schema(
-  {
-    type: { type: String, enum: ["mcq", "coding"], required: true },
-    text: { type: String, required: true },
-    marks: { type: Number, required: true, default: 1, min: 0 },
-
-    // MCQ-only fields
-    options: {
-      type: [String],
-      validate: {
-        validator: function (v) {
-          return this.type !== "mcq" || (v && v.length >= 2);
-        },
-        message: "MCQ questions need at least 2 options",
-      },
+    {
+        question: { type: String, required: true, trim: true },
+        type: { type: String, enum: ["MCQ", "CODE"], required: true },
+        marks: { type: Number, required: true, default: 1, min: 1 },
+        options: { type: [String], default: undefined },
+        correctOptionIndex: { type: Number, default: undefined },
+        starterCode: { type: String, default: undefined },
+        language: { type: String, trim: true, default: undefined },
+        sampleTestCases: { type: [testCaseSchema], default: undefined },
+        hiddenTestCases: { type: [testCaseSchema], default: undefined },
     },
-    correctOptionIndex: { type: Number },
-
-    // Coding-only fields
-    starterCode: {
-      type: String,
-      default: "def solve():\n    pass\n", // Python-style stub instead of C++
-    },
-    language: {
-      type: String,
-      enum: ["python"], // locked to python only — no multi-language handling needed
-      default: "python",
-    },
-    compilerName: {
-      type: String,
-      default: "cpython-3.11.1", // Wandbox compiler identifier — VERIFY against
-      // GET https://wandbox.org/api/list.json before relying on this
-    },
-    testCases: [testCaseSchema],
-  },
-  { _id: true },
+    { _id: true },
 );
 
 const assessmentSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true, trim: true },
-    description: { type: String, default: "" },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+    {
+        title: { type: String, required: true, trim: true },
+        description: { type: String, required: true, trim: true },
+        duration: { type: Number, required: true, min: 1 },
+        difficulty: { type: String, enum: ["easy", "medium", "hard"], required: true },
+        status: { type: String, enum: ["draft", "published", "archived"], required: true },
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+        questions: {
+            type: [questionSchema],
+            required: true,
+            validate: {
+                validator: (value) => Array.isArray(value) && value.length > 0,
+                message: "At least one question is required",
+            },
+        },
     },
-    durationMinutes: { type: Number, required: true, min: 1 },
-    questions: {
-      type: [questionSchema],
-      validate: {
-        validator: (v) => v.length > 0,
-        message: "Assessment must have at least one question",
-      },
-    },
-    startTime: { type: Date, required: true },
-    endTime: { type: Date, required: true },
-    isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true },
+    { timestamps: true },
 );
 
 assessmentSchema.index({ createdBy: 1 });
-assessmentSchema.index({ startTime: 1, endTime: 1 });
 
 module.exports = mongoose.model("Assessment", assessmentSchema);
