@@ -313,9 +313,6 @@ export const CandidateLoginPage: React.FC = () => {
 
                 {/* Password */}
                 <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
-                  </div>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
                       <Lock className="w-4 h-4" />
