@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Briefcase, Mail, Lock, ArrowLeft, BarChart3, TrendingUp, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export const RecruiterLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,11 +10,11 @@ export const RecruiterLoginPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Recruiter Logging In: ${email}`);
+    toast.success(`Recruiter Session Started: ${email}`);
   };
 
   const handleGoogleLogin = () => {
-    alert('Logging in with Google...');
+    toast.success('Redirecting to Google Secure SSO...');
   };
 
   return (
