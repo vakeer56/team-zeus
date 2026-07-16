@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const authRoutes = require('./src/routes/auth.routes');
 const assessmentRoutes = require('./src/routes/assessment.routes');
+const submissionRoutes = require('./src/routes/submissionRoutes');
+const proctorRoutes = require('./src/routes/proctorRoutes');
+const reportRoutes = require('./src/routes/reportRoutes');
 const ApiError = require('./src/utils/ApiError');
 
 const app = express();
@@ -13,6 +16,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(authRoutes);
 app.use(assessmentRoutes);
+app.use('/submissions', submissionRoutes);
+app.use('/proctor', proctorRoutes);
+app.use('/reports', reportRoutes);
 
 mongoose.connect(process.env.DB_URL)
     .then(() => console.log("connected to the db...."))
