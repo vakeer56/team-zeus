@@ -299,7 +299,7 @@ export const AssessmentPage: React.FC = () => {
     }
   };
 
-  const syncSubmissionToBackend = async (finalStatus: string = 'submitted') => {
+  const syncSubmissionToBackend = async (finalStatus: string = 'submitted', calculatedScore?: number) => {
     try {
       const currentSubId = submissionIdRef.current;
       if (!currentSubId) return;
@@ -330,7 +330,7 @@ export const AssessmentPage: React.FC = () => {
 
       const body = {
         answers: formattedAnswers,
-        totalScore: mcqScore,
+        totalScore: calculatedScore !== undefined ? calculatedScore : mcqScore,
         status: finalStatus,
         aiReport: {
           riskScore: 100 - securityScoreRef.current,
@@ -377,6 +377,7 @@ export const AssessmentPage: React.FC = () => {
 
   // 2. Load progress securely from LocalStorage and dynamic test schema on mount
   useEffect(() => {
+    startSecureSubmission();
     let initialMappedQuestions: Question[] = [];
     const rawTest = localStorage.getItem('evalix_current_test');
     if (rawTest) {
@@ -1084,7 +1085,7 @@ except Exception as _e:
     toast.dismiss("submit-exam");
     toast.success("Evaluation complete! Detailed scoreboard loaded.");
 
-    await syncSubmissionToBackend('submitted');
+    await syncSubmissionToBackend('submitted', totalScore);
     localStorage.removeItem('evalix_exam_progress_secure');
     localStorage.removeItem('evalix_current_test');
 

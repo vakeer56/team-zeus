@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { 
   TrendingUp, 
   CheckCircle2, 
@@ -114,7 +115,16 @@ export const RecruiterDashboard: React.FC = () => {
       setProfileEmail(u.email || '');
     }
     loadAssessments();
-  }, []);
+
+    const socket = io("http://localhost:3000");
+    socket.on("submission_updated", () => {
+      loadSubmissions();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [selectedAssessmentId]);
 
   useEffect(() => {
     if (selectedAssessmentId) {

@@ -80,6 +80,12 @@ exports.updateSubmission = async (req, res, next) => {
 
     await submission.save();
 
+    // Emit Socket.io event to notify Recruiter Dashboard in real time
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('submission_updated', submission);
+    }
+
     res.status(200).json({
       success: true,
       message: "Submission updated successfully",
