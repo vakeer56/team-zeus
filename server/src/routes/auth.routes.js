@@ -9,6 +9,10 @@ const {
     createRecruiter,
 } = require("../controllers/auth.controller");
 const { authenticate, authorize } = require("../middleware/authenticate");
+const {
+    loginLimiter,
+    registerLimiter
+} = require("../middleware/rateLimiter");
 
 const router = express.Router();
 

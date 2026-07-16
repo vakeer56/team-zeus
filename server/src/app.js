@@ -12,10 +12,12 @@ const proctorRoutes = require('./routes/proctorRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const plagiarismRoutes = require('./routes/plagiarism.routes');
 const ApiError = require('./utils/ApiError');
+const { apiLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 
 app.use(express.json());
+
 
 const defaultOrigins = [
     'http://localhost:5173',
@@ -53,6 +55,8 @@ app.use(
 );
 // ────────────────────────────────────────────────────────────────────────────
 app.use(authRoutes);
+
+app.use(apiLimiter); // Apply general API rate limiter to all routes
 app.use(assessmentRoutes);
 app.use('/submissions', submissionRoutes);
 app.use('/proctor', proctorRoutes);
