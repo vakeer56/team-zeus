@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'candidate'],   // whitelist — prevents privilege injection
+    enum: ['admin', 'recruiter', 'candidate'],   // whitelist — prevents privilege injection
     default: 'candidate',
     required: true
   },

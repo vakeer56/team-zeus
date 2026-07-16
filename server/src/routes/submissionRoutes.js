@@ -1,15 +1,8 @@
-// routes/submissionRoutes.js (relevant slice)
-
 const express = require("express");
 const router = express.Router();
-const { logProctorEvent } = require("../controllers/proctorController");
-const { requireAuth, requireRole } = require("../middleware/auth"); // adjust to your actual middleware names
+const { getAiReport } = require("../controllers/aiReportController");
+const { requireAuth } = require("../middleware/auth");
 
-router.post(
-  "/:id/proctor-event",
-  requireAuth,                 // populates req.user
-  requireRole("candidate"),    // only candidates log their own proctor events
-  logProctorEvent
-);
+router.get("/:id/ai-report", requireAuth, getAiReport);
 
 module.exports = router;

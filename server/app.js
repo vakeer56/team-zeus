@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const submissionRoutes = require('./src/routes/submissionRoutes');
+const proctorRoutes = require('./src/routes/proctorRoutes');
 const authRoutes = require('./src/routes/auth.routes');
 
 const app = express();
@@ -11,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use('/submissions', submissionRoutes);
+app.use('/proctor', proctorRoutes);
 
 
 //-----------------------------REMOVE THE CONSOLE MSSGE LATER -------------------------------

@@ -54,9 +54,9 @@ const proctorEventSchema = new mongoose.Schema(
 
 const riskFlagSchema = new mongoose.Schema(
   {
-    reason: { type: String, required: true },
+    type: { type: String, required: true },
     count: { type: Number, required: true },
-    weight: { type: Number, required: true },
+    severity: { type: String, required: true },
   },
   { _id: false },
 );
@@ -79,7 +79,7 @@ const submissionSchema = new mongoose.Schema(
     aiReport: {
       riskScore: { type: Number, default: 0, min: 0, max: 100 },
       flags: [riskFlagSchema],
-      computedAt: { type: Date },
+      generatedAt: { type: Date },
     },
     status: {
       type: String,
