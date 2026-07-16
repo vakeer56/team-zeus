@@ -7,12 +7,10 @@ const {
     getMe,
     updateProfile,
     createRecruiter,
+    forgotPassword,
+    resetPassword,
 } = require("../controllers/auth.controller");
 const { authenticate, authorize } = require("../middleware/authenticate");
-const {
-    loginLimiter,
-    registerLimiter
-} = require("../middleware/rateLimiter");
 
 const router = express.Router();
 
@@ -54,5 +52,7 @@ router.get("/me", authenticate, getMe);
 router.get("/verify-email/:token", verifyEmail);
 router.put("/update-profile", authenticate, updateProfile);
 router.post("/create-recruiter", authenticate, authorize("recruiter"), createRecruiter);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 module.exports = router;

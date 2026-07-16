@@ -160,25 +160,7 @@ The following accounts are pre-seeded and available for evaluation:
 
 > These accounts exist in the shared deployment database for demo and evaluation purposes.
 
-<<<<<<< HEAD
-## Known Limitations
-
-Documented honestly, per the hackathon's submission guidelines:
-
-- **Candidates can self-report their own score:** `PUT /submissions/:id` only checks that the requester *owns* the submission — it doesn't restrict who may set `totalScore` or move `status` to `submitted`/`evaluated`. A candidate can currently grade their own attempt via the API.
-- **Recruiters can't view or manage their own draft assessments individually:** `GET /assessments/:id` only bypasses the `published`-only filter for `role === "admin"`; `recruiter` is not included, even though recruiters are the ones allowed to create and publish assessments.
-- **Recruiters can't see their own answer keys:** `sanitizeAssessment` strips `correctOptionIndex` and `hiddenTestCases` for every role except `admin`.
-- **No ownership check on assessment edit/delete:** any authenticated `admin` or `recruiter` can update or delete *any* assessment, not just ones they created.
-- **No code execution on the server:** Python code questions are compiled/run by calling the third-party Wandbox API directly **from the browser** (`AssessmentPage.tsx`), not through the backend. There's no server-side sandboxing, rate limiting, or result verification — a candidate could tamper with the client-reported result before it's sent to `PUT /submissions/:id`.
-- **Socket.io events are unscoped:** `assessment_created` and `submission_updated` are broadcast to every connected socket with no rooms/namespaces, so any logged-in client (candidate or recruiter) receives every other user's submission updates.
-- **No refresh-token flow:** JWTs expire after 15 minutes with no renewal mechanism.
-- **In-memory rate limiting:** login/register limiters and the proctoring-event limiter store state in-process, so they reset on restart and don't work correctly across multiple server instances.
-- **No admin account seeding:** `role: "admin"` exists in the schema and is used in several authorization checks, but nothing in `/register` or the seed scripts creates one — it must be set manually in the database.
-- **`GET /reports/submissions/:id` and `GET /submissions/:id/ai-report`** are two different URLs for the same underlying handler (`reportController.getReport`) — harmless, but worth knowing if calling the API directly.
-- **Client dev vs. prod default port mismatch:** `client/src/config/api.ts` defaults to `http://localhost:3001` on localhost, while the server defaults to port `3000`. Set `VITE_API_URL` explicitly, or align the two, to avoid confusion.
-=======
 ---
->>>>>>> 505b9e0 (docs: documentation modification)
 
 ## Team
 
@@ -186,16 +168,9 @@ Documented honestly, per the hackathon's submission guidelines:
 
 | Name | Role |
 |---|---|
-<<<<<<< HEAD
 | _Varun M_ | _Leader / Backend Developer_ |
 | _Ponnu Raj_ | _Backend Developer / Frontend Developer_ |
 | _Aakash Raj_ | _Backend Developer / Frontend Developer_ |
 | _Krishsudharsun_ | _Security Developer / Tester_ |
 
 _Add team member names and contact details before final submission._
-=======
-| Varun | Team Lead / Backend Developer |
-| Ponnu Raj | Backend Developer / Frontend Developer |
-| Akash Raj | Backend Developer / Frontend Developer |
-| Krishsudharsun | Security Developer / Tester |
->>>>>>> 505b9e0 (docs: documentation modification)

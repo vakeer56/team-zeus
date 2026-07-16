@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Laptop,
   Mail,
@@ -31,6 +31,11 @@ export const CandidateLoginPage: React.FC = () => {
   const [age, setAge] = useState<number | ''>('');
   const [education, setEducation] = useState('');
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resetToken = searchParams.get('resetToken') || '';
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +50,54 @@ export const CandidateLoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      if (isSignUp) {
+      if (resetToken) {
+        // --- RESET PASSWORD FLOW ---
+        if (password !== confirmPassword) {
+          toast.error("Passwords do not match.");
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await fetch(apiUrl('/reset-password'), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            token: resetToken,
+            password
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Password reset failed");
+        }
+
+        toast.success("Password reset successfully! Please sign in.");
+        setSearchParams({}); // Clear query parameters
+        setPassword('');
+        setConfirmPassword('');
+        setForgotPasswordMode(false);
+        setIsSignUp(false);
+      } else if (forgotPasswordMode) {
+        // --- FORGOT PASSWORD FLOW ---
+        const response = await fetch(apiUrl('/forgot-password'), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Failed to submit request");
+        }
+
+        toast.success("Reset link printed to the backend console logs!", { duration: 6000 });
+        setForgotPasswordMode(false);
+      } else if (isSignUp) {
         // --- SIGN UP / REGISTRATION FLOW ---
         if (isRecruiterEmail(email)) {
           toast.error("Recruiter accounts cannot be self-registered. Contact system administrator.", {
@@ -143,38 +195,110 @@ export const CandidateLoginPage: React.FC = () => {
           {/* Heading */}
           <div className="space-y-1.5">
             <h2 className="text-3xl font-extrabold font-['Outfit'] tracking-tight text-white">
-              {isSignUp ? 'Create Exam Profile' : 'Secure Sign In'}
+              {resetToken ? 'Reset Your Password' : forgotPasswordMode ? 'Forgot Password' : isSignUp ? 'Create Exam Profile' : 'Secure Sign In'}
             </h2>
             <p className="text-slate-400 text-sm leading-relaxed">
-              {isSignUp
+              {resetToken
+                ? 'Enter a new secure password for your account.'
+                : forgotPasswordMode
+                ? 'Enter your registered email address to receive a password reset link.'
+                : isSignUp
                 ? 'Sign up to register your candidate profile.'
                 : 'Enter your credentials to access your secure exam environment or dashboard.'}
             </p>
           </div>
 
           {/* Mode Switch Tabs */}
-          <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-900">
-            <button
-              type="button"
-              onClick={() => { setIsSignUp(false); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${!isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setIsSignUp(true); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              Register Candidate
-            </button>
-          </div>
+          {!resetToken && !forgotPasswordMode && (
+            <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-900">
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(false); }}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${!isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(true); }}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+              >
+                Register Candidate
+              </button>
+            </div>
+          )}
 
           {/* Input Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp ? (
+            {resetToken ? (
+              // --- RESET PASSWORD FIELDS ---
+              <div className="space-y-4">
+                {/* New Password */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">New Password</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pl-9 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Confirm New Password</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pl-9 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : forgotPasswordMode ? (
+              // --- FORGOT PASSWORD FIELDS ---
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email Address</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@evalix.com"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : isSignUp ? (
               // --- SIGN UP FIELDS ---
               <div className="space-y-4 animate-fade-in max-h-[40vh] overflow-y-auto pr-1">
                 {/* Full Name */}
@@ -335,18 +459,27 @@ export const CandidateLoginPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Remember Me */}
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 bg-slate-950 border border-slate-800 rounded text-indigo-600 focus:ring-indigo-500/30 accent-indigo-600"
-                  />
-                  <label htmlFor="remember-me" className="ml-2.5 text-xs text-slate-400 select-none cursor-pointer font-medium">
-                    Remember me on this device
-                  </label>
+                {/* Remember Me & Forgot Password */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="remember-me"
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 bg-slate-950 border border-slate-800 rounded text-indigo-600 focus:ring-indigo-500/30 accent-indigo-600"
+                    />
+                    <label htmlFor="remember-me" className="ml-2.5 text-xs text-slate-400 select-none cursor-pointer font-medium">
+                      Remember me
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForgotPasswordMode(true)}
+                    className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
               </div>
             )}
@@ -361,11 +494,31 @@ export const CandidateLoginPage: React.FC = () => {
                 <span>Authorizing...</span>
               ) : (
                 <>
-                  <span>{isSignUp ? 'Register Exam Profile' : 'Authorize Security Gateway'}</span>
+                  <span>{resetToken ? 'Update Password' : forgotPasswordMode ? 'Send Reset Link' : isSignUp ? 'Register Exam Profile' : 'Authorize Security Gateway'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}
             </button>
+
+            {/* Cancel / Back to login button */}
+            {resetToken && (
+              <button
+                type="button"
+                onClick={() => setSearchParams({})}
+                className="w-full text-xs font-semibold text-slate-500 hover:text-slate-350 transition-colors text-center cursor-pointer pt-1"
+              >
+                Cancel Reset
+              </button>
+            )}
+            {!resetToken && forgotPasswordMode && (
+              <button
+                type="button"
+                onClick={() => setForgotPasswordMode(false)}
+                className="w-full text-xs font-semibold text-slate-500 hover:text-slate-350 transition-colors text-center cursor-pointer pt-1"
+              >
+                Back to Sign In
+              </button>
+            )}
           </form>
 
         </div>

@@ -192,15 +192,8 @@ const updateProfile = async (req, res, next) => {
         }
 
         if (name) user.name = name;
-        if (email) {
-            const normalizedEmail = email.toLowerCase();
-            if (normalizedEmail !== user.email) {
-                const existingUser = await User.findOne({ email: normalizedEmail });
-                if (existingUser) {
-                    throw new ApiError(400, "Email is already taken by another user");
-                }
-                user.email = normalizedEmail;
-            }
+        if (email && email.toLowerCase() !== user.email) {
+            throw new ApiError(400, "Email address changes are not permitted");
         }
         if (password) {
             if (!currentPassword) {
@@ -286,6 +279,73 @@ const createRecruiter = async (req, res, next) => {
     }
 };
 
+const forgotPassword = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            throw new ApiError(400, "Email is required");
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(200).json({
+                success: true,
+                message: "If a matching account exists, a password reset link has been printed to the server logs.",
+            });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
+        await user.save();
+
+        console.log(`\n================ PASSWORD RESET LOG ================`);
+        console.log(`Reset link for ${user.email}: http://localhost:5173/login?resetToken=${resetToken}`);
+        console.log(`====================================================\n`);
+
+        res.status(200).json({
+            success: true,
+            message: "If a matching account exists, a password reset link has been printed to the server logs.",
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+const resetPassword = async (req, res, next) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) {
+            throw new ApiError(400, "Token and password are required");
+        }
+
+        if (password.length < 8) {
+            throw new ApiError(400, "Password must be at least 8 characters");
+        }
+
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() },
+        });
+
+        if (!user) {
+            throw new ApiError(400, "Invalid or expired reset token");
+        }
+
+        user.password = await bcrypt.hash(password, 10);
+        user.resetPasswordToken = null;
+        user.resetPasswordExpires = null;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Password has been reset successfully.",
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -293,4 +353,6 @@ module.exports = {
     getMe,
     updateProfile,
     createRecruiter,
+    forgotPassword,
+    resetPassword,
 };
