@@ -31,7 +31,6 @@ const io = new Server(server, {
     },
 });
 
-// Expose Socket.io instance so route handlers can emit events via req.app.get('io')
 app.set('io', io);
 
 io.on('connection', (socket) => {
