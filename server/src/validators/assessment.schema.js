@@ -9,7 +9,7 @@ const testCaseSchema = z
 
 const questionSchema = z
     .object({
-        question: z.string().trim().min(5, "Question text must be at least 5 characters"),
+        question: z.string().trim().min(1, "Question text must be at least 1 character"),
         type: z.enum(["MCQ", "CODE"], {
             required_error: "Question type is required",
             invalid_type_error: "Question type must be MCQ or CODE",
@@ -103,7 +103,7 @@ const questionSchema = z
 
 const createAssessmentSchema = z
     .object({
-        title: z.string().trim().min(3, "Title must be at least 3 characters"),
+        title: z.string().trim().min(1, "Title must be at least 1 character"),
         description: z.string().trim().min(1, "Description is required"),
         duration: z.number().int().positive("Duration must be a positive integer"),
         difficulty: z.enum(["easy", "medium", "hard"], {

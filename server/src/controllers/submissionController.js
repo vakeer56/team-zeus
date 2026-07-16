@@ -18,7 +18,7 @@ exports.startSubmission = async (req, res, next) => {
     if (!assessment) {
       return res.status(404).json({ success: false, message: "Assessment not found" });
     }
-    if (!assessment.isActive) {
+    if (assessment.status !== "published") {
       return res.status(403).json({ success: false, message: "This assessment is not live yet" });
     }
 
@@ -116,12 +116,27 @@ exports.getSubmissions = async (req, res, next) => {
       .populate("assessmentId", "title durationMinutes")
       .sort({ createdAt: -1 });
 
-    // Fetch proctor events and calculate security violations for each submission
+     // Fetch proctor events and calculate security violations for each submission
     const enrichedSubmissions = await Promise.all(
       submissions.map(async (sub) => {
         const events = await ProctorEvent.find({ submissionId: sub._id });
+        
+        // Calculate dynamic risk score based on proctor events
+        let copyPasteCount = events.filter(e => ['copy_attempt', 'paste_attempt', 'right_click'].includes(e.eventType)).length;
+        let tabSwitchCount = events.filter(e => e.eventType === 'tab_switch').length;
+        let windowBlurCount = events.filter(e => e.eventType === 'window_blur').length;
+        let fullscreenExitCount = events.filter(e => e.eventType === 'fullscreen_exit').length;
+        let devToolsCount = events.filter(e => e.eventType === 'suspicious_activity').length;
+
+        let calculatedRisk = (copyPasteCount * 5) + (tabSwitchCount * 30) + (windowBlurCount * 30) + (fullscreenExitCount * 30) + (devToolsCount * 30);
+        calculatedRisk = Math.min(100, calculatedRisk);
+
         const obj = sub.toObject();
         obj.proctorEvents = events;
+        if (!obj.aiReport) {
+          obj.aiReport = {};
+        }
+        obj.aiReport.riskScore = calculatedRisk;
         return obj;
       })
     );
@@ -155,12 +170,56 @@ exports.getSubmissionDetails = async (req, res, next) => {
     }
 
     const events = await ProctorEvent.find({ submissionId: submission._id }).sort({ createdAt: 1 });
+    
+    // Calculate dynamic risk score
+    let copyPasteCount = events.filter(e => ['copy_attempt', 'paste_attempt', 'right_click'].includes(e.eventType)).length;
+    let tabSwitchCount = events.filter(e => e.eventType === 'tab_switch').length;
+    let windowBlurCount = events.filter(e => e.eventType === 'window_blur').length;
+    let fullscreenExitCount = events.filter(e => e.eventType === 'fullscreen_exit').length;
+    let devToolsCount = events.filter(e => e.eventType === 'suspicious_activity').length;
+
+    let calculatedRisk = (copyPasteCount * 5) + (tabSwitchCount * 30) + (windowBlurCount * 30) + (fullscreenExitCount * 30) + (devToolsCount * 30);
+    calculatedRisk = Math.min(100, calculatedRisk);
+
     const submissionObj = submission.toObject();
     submissionObj.proctorEvents = events;
+    if (!submissionObj.aiReport) {
+      submissionObj.aiReport = {};
+    }
+    submissionObj.aiReport.riskScore = calculatedRisk;
 
     res.status(200).json({
       success: true,
       submission: submissionObj
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Reauthorize candidate (Delete submission and proctor events so they can restart clean)
+exports.reauthorizeSubmission = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const submission = await Submission.findById(id);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    // Delete all proctor events
+    await ProctorEvent.deleteMany({ submissionId: id });
+    // Delete the submission
+    await Submission.findByIdAndDelete(id);
+
+    // Emit Socket.io update
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('submission_updated');
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Candidate re-authorized successfully. Previous session reset."
     });
   } catch (err) {
     next(err);

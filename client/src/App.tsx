@@ -3,11 +3,13 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LandingPage } from './pages/LandingPage';
 import { CandidateLoginPage } from './pages/CandidateLoginPage';
-import { RecruiterLoginPage } from './pages/RecruiterLoginPage';
 import { RecruiterDashboard } from './pages/RecruiterDashboard';
 import { CandidateDashboard } from './pages/CandidateDashboard';
 import { CreateAssessmentPage } from './pages/CreateAssessmentPage';
 import { AssessmentPage } from './pages/AssessmentPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { RecruiterProfilePage } from './pages/RecruiterProfilePage';
+import { AddRecruiterPage } from './pages/AddRecruiterPage';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -22,7 +24,10 @@ function App() {
     location.pathname === '/assessment' ||
     location.pathname === '/recruiter-dashboard' ||
     location.pathname === '/candidate-dashboard' ||
-    location.pathname === '/create-assessment';
+    location.pathname === '/create-assessment' ||
+    location.pathname === '/profile' ||
+    location.pathname === '/recruiter-profile' ||
+    location.pathname === '/add-recruiter';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#030712] text-slate-100 selection:bg-indigo-500/30 selection:text-white font-sans">
@@ -35,11 +40,14 @@ function App() {
           <Route path="/login" element={<CandidateLoginPage />} />
           <Route path="/login-select" element={<CandidateLoginPage />} />
           <Route path="/login-candidate" element={<CandidateLoginPage />} />
-          <Route path="/login-recruiter" element={<RecruiterLoginPage />} />
+          <Route path="/login-recruiter" element={<CandidateLoginPage />} />
           <Route path="/recruiter-dashboard" element={<RecruiterDashboard />} />
           <Route path="/candidate-dashboard" element={<CandidateDashboard />} />
           <Route path="/create-assessment" element={<CreateAssessmentPage />} />
           <Route path="/assessment" element={<AssessmentPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/recruiter-profile" element={<RecruiterProfilePage />} />
+          <Route path="/add-recruiter" element={<AddRecruiterPage />} />
         </Routes>
       </main>
 

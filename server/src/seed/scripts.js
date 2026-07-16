@@ -110,13 +110,14 @@ async function seed() {
 
   const assessment = await Assessment.create({
     title: "Test Assessment",
+    description: "Seeded test assessment to verify portal environment.",
+    duration: 60,
+    difficulty: "medium",
+    status: "published",
     createdBy: recruiter._id,
-    durationMinutes: 60,
     questions: [
-      { type: "mcq", text: "2+2?", marks: 1, options: ["3", "4"], correctOptionIndex: 1 },
+      { question: "2+2?", type: "MCQ", marks: 1, options: ["3", "4"], correctOptionIndex: 1 },
     ],
-    startTime: new Date(),
-    endTime: new Date(Date.now() + 3600000),
   });
 
   const submission = await Submission.create({

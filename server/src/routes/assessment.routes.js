@@ -36,18 +36,21 @@ router.put('/assessments/:id/make-live', authenticate, authorize("admin", "recru
       return res.status(404).json({ success: false, message: "Assessment not found" });
     }
 
-    assessment.status = "published";
+    const targetStatus = assessment.status === "published" ? "draft" : "published";
+    assessment.status = targetStatus;
     await assessment.save();
 
-    // Broadcast Socket.io event
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('assessment_created', assessment);
+    // Broadcast Socket.io event if turning live
+    if (targetStatus === "published") {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('assessment_created', assessment);
+      }
     }
 
     res.status(200).json({
       success: true,
-      message: "Assessment is now live!",
+      message: targetStatus === "published" ? "Assessment is now live!" : "Assessment is now inactive.",
       assessment
     });
   } catch (err) {

@@ -11,6 +11,9 @@ const registerSchema = z.object({
     name: z.string().trim().min(2, "Name must be at least 2 characters"),
     email: z.string().trim().toLowerCase().email("Invalid email format"),
     password: z.string().min(8, "Password must be at least 8 characters"),
+    mobileNumber: z.string().optional().nullable(),
+    age: z.coerce.number().optional().nullable(),
+    education: z.string().optional().nullable(),
 });
 
 const loginSchema = z.object({
@@ -35,8 +38,13 @@ const sendVerificationEmail = (user, token) => {
 
 const register = async (req, res, next) => {
     try {
-        const { name, email, password } = parseBody(registerSchema, req.body);
+        const { name, email, password, mobileNumber, age, education } = parseBody(registerSchema, req.body);
         const normalizedEmail = email.toLowerCase();
+
+        const isRecruiter = normalizedEmail.endsWith("@recruiter.evalix.com");
+        if (isRecruiter) {
+            throw new ApiError(400, "Recruiter accounts cannot be self-registered");
+        }
 
         const existingUser = await User.findOne({ email: normalizedEmail });
 
@@ -47,14 +55,16 @@ const register = async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const verificationToken = crypto.randomBytes(32).toString("hex");
 
-        const isRecruiter = normalizedEmail.endsWith("@recruiter.evalix.com");
         const user = await User.create({
             name,
             email: normalizedEmail,
             password: hashedPassword,
-            role: isRecruiter ? "recruiter" : "candidate",
+            role: "candidate",
             isVerified: false,
             verificationToken,
+            mobileNumber: mobileNumber || "",
+            age: age || null,
+            education: education || "",
         });
 
         sendVerificationEmail(user, verificationToken);
@@ -72,6 +82,9 @@ const register = async (req, res, next) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                mobileNumber: user.mobileNumber,
+                age: user.age,
+                education: user.education,
             },
         });
     } catch (err) {
@@ -84,7 +97,15 @@ const login = async (req, res, next) => {
         const { email, password } = parseBody(loginSchema, req.body);
         const normalizedEmail = email.toLowerCase();
 
-        const user = await User.findOne({ email: normalizedEmail }).select("+password");
+        const isRecruiter = normalizedEmail.endsWith("@recruiter.evalix.com");
+        let query = { email: normalizedEmail };
+        if (isRecruiter) {
+            query.role = "recruiter";
+        } else {
+            query.role = { $ne: "recruiter" };
+        }
+
+        const user = await User.findOne(query).select("+password");
         const isMatch = await bcrypt.compare(password, user ? user.password : DUMMY_HASH);
 
         if (!user || !isMatch) {
@@ -152,7 +173,7 @@ const getMe = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, currentPassword, mobileNumber, age, education } = req.body;
         const userId = req.user.id;
 
         const user = await User.findById(userId).select("+password");
@@ -172,8 +193,19 @@ const updateProfile = async (req, res, next) => {
             }
         }
         if (password) {
+            if (!currentPassword) {
+                throw new ApiError(400, "Current password is required to change password");
+            }
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                throw new ApiError(400, "Incorrect current password");
+            }
             user.password = await bcrypt.hash(password, 10);
         }
+
+        if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
+        if (age !== undefined) user.age = age;
+        if (education !== undefined) user.education = education;
 
         await user.save();
 
@@ -190,6 +222,9 @@ const updateProfile = async (req, res, next) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                mobileNumber: user.mobileNumber,
+                age: user.age,
+                education: user.education,
             },
         });
     } catch (err) {

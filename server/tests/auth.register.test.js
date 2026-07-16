@@ -135,4 +135,15 @@ describe('POST /register', () => {
         expect(typeof dbUser.verificationToken).toBe('string');
         expect(dbUser.verificationToken.length).toBeGreaterThan(0);
     });
+
+    // ── 9. Recruiter email self-registration blocked ─────────────────────────
+    it('returns 400 when attempting to register an email ending with @recruiter.evalix.com', async () => {
+        const res = await registerUser({
+            ...VALID_PAYLOAD,
+            email: 'admin@recruiter.evalix.com',
+        });
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toMatch(/recruiter accounts cannot be self-registered/i);
+    });
 });

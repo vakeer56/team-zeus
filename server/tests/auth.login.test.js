@@ -16,6 +16,7 @@
 const request = require('supertest');
 const bcrypt = require('bcrypt');
 const app = require('../src/app');
+const User = require('../src/models/user.model');
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -148,5 +149,48 @@ describe('POST /login', () => {
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
         expect(res.body.user.email).toBe('casetest@example.com');
+    });
+
+    // ── 8. Recruiter login and query scoping ────────────────────────────────
+    it('successfully logs in a recruiter and scopes query only to recruiters', async () => {
+        const hashedPassword = await bcrypt.hash('recruiterPass123', 10);
+        
+        // Create a recruiter user
+        await User.create({
+            name: 'Recruiter Admin',
+            email: 'recruiter@recruiter.evalix.com',
+            password: hashedPassword,
+            role: 'recruiter',
+            isVerified: true,
+        });
+
+        // Try to login
+        const res = await request(app).post('/login').send({
+            email: 'recruiter@recruiter.evalix.com',
+            password: 'recruiterPass123',
+        });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.user.role).toBe('recruiter');
+
+        // Create a candidate with the recruiter email structure (for testing query restriction)
+        // Note: In real life, they can't self-register, but if one exists, we shouldn't allow it to login as recruiter.
+        await User.create({
+            name: 'Fake Recruiter',
+            email: 'fake@recruiter.evalix.com',
+            password: hashedPassword,
+            role: 'candidate',
+            isVerified: true,
+        });
+
+        const loginRes = await request(app).post('/login').send({
+            email: 'fake@recruiter.evalix.com',
+            password: 'recruiterPass123',
+        });
+
+        // Since the email ends with @recruiter.evalix.com, the query looks for role: 'recruiter'.
+        // It won't find the candidate record, so it should return 401.
+        expect(loginRes.status).toBe(401);
     });
 });

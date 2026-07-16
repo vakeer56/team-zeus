@@ -360,7 +360,7 @@ export const AssessmentPage: React.FC = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
-    await syncSubmissionToBackend('evaluated');
+    await syncSubmissionToBackend('disqualified');
     localStorage.removeItem('evalix_exam_progress_secure');
     localStorage.removeItem('evalix_current_test');
     toast.error("🚨 You have been disqualified from this test.", { duration: 8000 });
@@ -1071,8 +1071,9 @@ except Exception as _e:
       }
     });
 
-    const totalScore = mcqScore + codingScore;
-    const totalMax = mcqMax + codingMax;
+    const mcqPercentage = mcqMax > 0 ? (mcqScore / mcqMax) * 100 : 100;
+    const codingPercentage = codingMax > 0 ? (codingScore / codingMax) * 100 : 100;
+    const averageScore = Math.round((mcqMax > 0 && codingMax > 0) ? (mcqPercentage + codingPercentage) / 2 : (mcqMax > 0 ? mcqPercentage : codingPercentage));
 
     setExamBreakdown({
       mcqScore,
@@ -1080,14 +1081,14 @@ except Exception as _e:
       codingScore,
       codingMax,
       integrityScore: securityScore,
-      totalScore,
-      totalMax
+      totalScore: averageScore,
+      totalMax: 100
     });
 
     toast.dismiss("submit-exam");
     toast.success("Evaluation complete! Detailed scoreboard loaded.");
 
-    await syncSubmissionToBackend('submitted', totalScore);
+    await syncSubmissionToBackend('submitted', averageScore);
     localStorage.removeItem('evalix_exam_progress_secure');
     localStorage.removeItem('evalix_current_test');
 
@@ -1207,6 +1208,37 @@ except Exception as _e:
   }
 
   const activeQuestion = questions.find(q => q.id === currentQuestionId);
+
+  const getParsedCodingDetails = () => {
+    if (!activeQuestion) return { title: 'Sandbox Assignment', description: '', examples: [], constraints: [] };
+    
+    const rawText = activeQuestion.mcqQuestion || (activeQuestion as any).question || '';
+    if (rawText.trim().startsWith('{') && rawText.trim().endsWith('}')) {
+      try {
+        const parsed = JSON.parse(rawText);
+        return {
+          title: parsed.title || activeQuestion.title,
+          description: parsed.description || '',
+          examples: parsed.examples || [],
+          constraints: parsed.constraints || []
+        };
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    return {
+      title: activeQuestion.title,
+      description: rawText,
+      examples: [
+        { input: 's = "abcabcbb"', output: '3', explanation: 'The answer is "abc", with the length of 3.' },
+        { input: 's = "bbbbb"', output: '1', explanation: 'The answer is "b", with the length of 1.' }
+      ],
+      constraints: ['0 <= s.length <= 10^4', 's consists of English letters, digits, symbols and spaces.']
+    };
+  };
+
+  const codingDetails = getParsedCodingDetails();
 
   return (
     <div className="exam-secure-shell h-screen bg-[#1a1a1a] flex flex-col text-slate-200 overflow-hidden font-sans select-none">
@@ -1424,13 +1456,13 @@ except Exception as _e:
                     <div className="space-y-6">
                       <div>
                         <h1 className="text-xl font-bold text-white mb-2">
-                          3. Longest Substring Without Repeating Characters
+                          {codingDetails.title}
                         </h1>
                         <div className="flex items-center gap-2">
                           <span className="px-2.5 py-0.5 rounded-full text-xs bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/25">
                             Medium
                           </span>
-                          <span className="text-xs text-slate-500">Evalix Coding Lab | 150 pts</span>
+                          <span className="text-xs text-slate-500">Evalix Coding Lab | {activeQuestion?.points || 150} pts</span>
                         </div>
                       </div>
 
@@ -1442,47 +1474,36 @@ except Exception as _e:
                       )}
 
                       <div className="text-sm text-slate-300 leading-relaxed space-y-4 font-sans">
-                        <p>
-                          Given a string <code>s</code>, find the length of the <strong>longest substring</strong> without repeating characters.
+                        <p className="whitespace-pre-line">
+                          {codingDetails.description}
                         </p>
 
-                        <div className="space-y-4 pt-2">
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 1:</p>
-                            <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
-                              <div><strong className="text-slate-400">Input:</strong> s = "abcabcbb"</div>
-                              <div><strong className="text-slate-400">Output:</strong> 3</div>
-                              <div><strong className="text-slate-400">Explanation:</strong> The answer is "abc", with the length of 3.</div>
-                            </div>
+                        {codingDetails.examples.length > 0 && (
+                          <div className="space-y-4 pt-2">
+                            {codingDetails.examples.map((ex: any, exIdx: number) => (
+                              <div key={exIdx} className="space-y-2">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example {exIdx + 1}:</p>
+                                <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
+                                  <div><strong className="text-slate-400">Input:</strong> {ex.input}</div>
+                                  <div><strong className="text-slate-400">Output:</strong> {ex.output}</div>
+                                  {ex.explanation && <div><strong className="text-slate-400">Explanation:</strong> {ex.explanation}</div>}
+                                </div>
+                              </div>
+                            ))}
                           </div>
+                        )}
+                      </div>
 
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 2:</p>
-                            <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
-                              <div><strong className="text-slate-400">Input:</strong> s = "bbbbb"</div>
-                              <div><strong className="text-slate-400">Output:</strong> 1</div>
-                              <div><strong className="text-slate-400">Explanation:</strong> The answer is "b", with the length of 1.</div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Example 3:</p>
-                            <div className="p-3 bg-[#1e1e1e] border border-[#333] rounded-lg font-mono text-xs text-slate-300 space-y-1">
-                              <div><strong className="text-slate-400">Input:</strong> s = "pwwkew"</div>
-                              <div><strong className="text-slate-400">Output:</strong> 3</div>
-                              <div><strong className="text-slate-400">Explanation:</strong> The answer is "wke", with the length of 3. Note that the answer must be a substring, "pwke" is a subsequence and not a substring.</div>
-                            </div>
-                          </div>
+                      {codingDetails.constraints.length > 0 && (
+                        <div className="space-y-2.5 pt-2">
+                          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Constraints:</h3>
+                          <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-300 font-mono">
+                            {codingDetails.constraints.map((c: string, cIdx: number) => (
+                              <li key={cIdx}>{c}</li>
+                            ))}
+                          </ul>
                         </div>
-                      </div>
-
-                      <div className="space-y-2.5 pt-2">
-                        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Constraints:</h3>
-                        <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-300 font-mono">
-                          <li>0 &lt;= s.length &lt;= 5 * 10<sup>4</sup></li>
-                          <li>s consists of English letters, digits, symbols and spaces.</li>
-                        </ul>
-                      </div>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-4">

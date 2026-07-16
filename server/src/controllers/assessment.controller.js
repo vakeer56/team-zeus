@@ -67,7 +67,7 @@ const createAssessment = async (req, res) => {
 
 const getAssessments = async (req, res) => {
     try {
-        const query = req.user.role === "admin" ? {} : { status: "published" };
+        const query = ["admin", "recruiter"].includes(req.user.role) ? {} : { status: "published" };
         const assessments = await Assessment.find(query).sort({ createdAt: -1 });
         const data = assessments.map((assessment) => sanitizeAssessment(toPlainObject(assessment), req.user.role));
 
@@ -80,7 +80,7 @@ const getAssessments = async (req, res) => {
 const getAssessmentById = async (req, res) => {
     try {
         const assessmentId = validateObjectId(req.params.id);
-        const query = req.user.role === "admin" ? { _id: assessmentId } : { _id: assessmentId, status: "published" };
+        const query = ["admin", "recruiter"].includes(req.user.role) ? { _id: assessmentId } : { _id: assessmentId, status: "published" };
         const assessment = await Assessment.findOne(query);
 
         if (!assessment) {

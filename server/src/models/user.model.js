@@ -33,6 +33,18 @@ const userSchema = new mongoose.Schema({
   verificationToken: {
     type: String,
     default: null
+  },
+  mobileNumber: {
+    type: String,
+    default: ""
+  },
+  age: {
+    type: Number,
+    default: null
+  },
+  education: {
+    type: String,
+    default: ""
   }
 }, { timestamps: true });          // adds createdAt, updatedAt
 

@@ -15,7 +15,13 @@ const sanitizeAssessment = (assessment, role = "candidate") => {
         ? ["__v", "createdBy"]
         : ["__v", "createdBy", "correctOptionIndex", "hiddenTestCases"];
 
+    const mongoose = require("mongoose");
+
     const sanitizeNode = (value) => {
+        if (value instanceof mongoose.Types.ObjectId) {
+            return value.toString();
+        }
+
         if (Array.isArray(value)) {
             return value.map((item) => sanitizeNode(item));
         }

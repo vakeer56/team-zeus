@@ -1,15 +1,37 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Laptop, Mail, Lock, User, Terminal, Eye, ShieldCheck, ArrowRight } from 'lucide-react';
+import { 
+  Laptop, 
+  Mail, 
+  Lock, 
+  User, 
+  Terminal, 
+  Eye, 
+  EyeOff, 
+  ShieldCheck, 
+  ArrowRight,
+  Phone,
+  Calendar,
+  GraduationCap
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { apiUrl } from '../config/api';
 
 export const CandidateLoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
+  
+  // Basic states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Custom schema fields for candidate signup
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [age, setAge] = useState<number | ''>('');
+  const [education, setEducation] = useState('');
+
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -25,7 +47,6 @@ export const CandidateLoginPage: React.FC = () => {
     try {
       if (isSignUp) {
         // --- SIGN UP / REGISTRATION FLOW ---
-        // 1. Enforce validation constraint: recruiters cannot register
         if (isRecruiterEmail(email)) {
           toast.error("Recruiter accounts cannot be self-registered. Contact system administrator.", {
             duration: 5000,
@@ -35,17 +56,21 @@ export const CandidateLoginPage: React.FC = () => {
           return;
         }
 
-        // 2. Call backend register route
+        const payload = {
+          name,
+          email,
+          password,
+          mobileNumber: mobileNumber || undefined,
+          age: age !== '' ? Number(age) : undefined,
+          education: education || undefined
+        };
+
         const response = await fetch(apiUrl('/register'), {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            name,
-            email,
-            password
-          })
+          body: JSON.stringify(payload)
         });
 
         const data = await response.json();
@@ -60,7 +85,6 @@ export const CandidateLoginPage: React.FC = () => {
         navigate('/candidate-dashboard');
       } else {
         // --- SIGN IN / LOGIN FLOW ---
-        // 1. Call backend login route
         const response = await fetch(apiUrl('/login'), {
           method: "POST",
           headers: {
@@ -81,7 +105,6 @@ export const CandidateLoginPage: React.FC = () => {
         localStorage.setItem('evalix_auth_token', data.token);
         localStorage.setItem('evalix_user', JSON.stringify(data.user));
 
-        // 2. Role validation checks
         if (data.user.role === 'recruiter') {
           toast.success("Recruiter Command Console unlocked successfully.");
           navigate('/recruiter-dashboard');
@@ -101,59 +124,66 @@ export const CandidateLoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] flex relative overflow-hidden bg-grid-pattern">
+    <div className="min-h-screen bg-[#030712] flex justify-center items-center relative overflow-hidden bg-grid-pattern p-6 sm:p-12">
       {/* Background Neon Elements */}
-      <div className="absolute top-1/2 left-[10%] w-[35%] h-[35%] rounded-full bg-purple-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/2 left-[10%] w-[35%] h-[35%] rounded-full bg-indigo-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[10%] right-[10%] w-[35%] h-[35%] rounded-full bg-purple-500/5 blur-[120px] pointer-events-none" />
 
-      {/* Main Container */}
-      <div className="flex w-full min-h-screen">
-        {/* Left Side: Dynamic Login/Registration Form */}
-        <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-20 py-12 z-10">
-          <div className="w-full max-w-md space-y-8">
-            {/* Header */}
-            <div className="space-y-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg">
-                <Laptop className="w-5 h-5 text-white" />
-              </div>
-              <h2 className="text-3xl font-extrabold font-['Outfit'] tracking-tight text-white">
-                {isSignUp ? 'Create Exam Profile' : 'Secure Sign In'}
-              </h2>
-              <p className="text-slate-400 text-sm">
-                {isSignUp 
-                  ? 'Sign up to register your candidate profile and take secure assessments.' 
-                  : 'Enter your credentials to access your secure exam environment or dashboard.'}
-              </p>
-            </div>
+      {/* Centered Wrapper to Prevent Viewport Stretch */}
+      <div className="max-w-6xl w-full mx-auto flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24 z-10">
+        
+        {/* Left Side: Secure Sign In Form */}
+        <div className="w-full max-w-md space-y-6 animate-fade-in shrink-0">
+          
+          {/* Laptop Icon Badge */}
+          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
+            <Laptop className="w-5 h-5 text-white" />
+          </div>
 
-            {/* Mode Switch Tabs */}
-            <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-900">
-              <button
-                type="button"
-                onClick={() => { setIsSignUp(false); }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  !isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsSignUp(true); }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Register Candidate
-              </button>
-            </div>
+          {/* Heading */}
+          <div className="space-y-1.5">
+            <h2 className="text-3xl font-extrabold font-['Outfit'] tracking-tight text-white">
+              {isSignUp ? 'Create Exam Profile' : 'Secure Sign In'}
+            </h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              {isSignUp 
+                ? 'Sign up to register your candidate profile.' 
+                : 'Enter your credentials to access your secure exam environment or dashboard.'}
+            </p>
+          </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {isSignUp && (
-                <div className="space-y-1.5 animate-fade-in">
-                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Full Name</label>
+          {/* Mode Switch Tabs */}
+          <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-900">
+            <button
+              type="button"
+              onClick={() => { setIsSignUp(false); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                !isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsSignUp(true); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                isSignUp ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Register Candidate
+            </button>
+          </div>
+
+          {/* Input Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isSignUp ? (
+              // --- SIGN UP FIELDS ---
+              <div className="space-y-4 animate-fade-in max-h-[40vh] overflow-y-auto pr-1">
+                {/* Full Name */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Full Name</label>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
                       <User className="w-4 h-4" />
                     </span>
                     <input
@@ -162,123 +192,240 @@ export const CandidateLoginPage: React.FC = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Jane Doe"
-                      className="w-full pl-10 pr-4 py-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all font-medium"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
                     />
                   </div>
                 </div>
-              )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Email Address</label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
-                    <Mail className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={isSignUp ? "candidate@email.com" : "you@evalix.com"}
-                    className="w-full pl-10 pr-4 py-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all font-medium"
-                  />
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email Address</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="jane@email.com"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Mobile Number */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mobile Number</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Phone className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="tel"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      placeholder="+1 (555) 019-2834"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Age */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Age</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Calendar className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="21"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Educational Details */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Educational Details</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <GraduationCap className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="text"
+                      value={education}
+                      onChange={(e) => setEducation(e.target.value)}
+                      placeholder="B.S. in Computer Science"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pl-9 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Password</label>
-                  {!isSignUp && (
-                    <a href="#" className="text-xs text-purple-400 hover:text-purple-300 hover:underline">Forgot password?</a>
-                  )}
+            ) : (
+              // --- SIGN IN FIELDS ---
+              <div className="space-y-4">
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email Address</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@evalix.com"
+                      className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
-                    <Lock className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full pl-10 pr-4 py-3.5 bg-slate-950/60 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 transition-all font-medium"
-                  />
-                </div>
-              </div>
 
-              {!isSignUp && (
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                    <a href="#" className="text-[10px] text-indigo-400 hover:underline font-semibold">Forgot password?</a>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pl-9 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember Me */}
                 <div className="flex items-center">
                   <input
                     id="remember-me"
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 bg-slate-950 border border-slate-800 rounded text-purple-600 focus:ring-purple-500/30 accent-purple-600"
+                    className="w-4 h-4 bg-slate-950 border border-slate-800 rounded text-indigo-600 focus:ring-indigo-500/30 accent-indigo-600"
                   />
-                  <label htmlFor="remember-me" className="ml-2.5 text-sm text-slate-400 select-none cursor-pointer">
+                  <label htmlFor="remember-me" className="ml-2.5 text-xs text-slate-400 select-none cursor-pointer font-medium">
                     Remember me on this device
                   </label>
                 </div>
+              </div>
+            )}
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3.5 px-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white rounded-xl text-xs font-bold transition-all duration-300 shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <span>Authorizing...</span>
+              ) : (
+                <>
+                  <span>{isSignUp ? 'Register Exam Profile' : 'Authorize Security Gateway'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
               )}
+            </button>
+          </form>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-4 px-5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white rounded-xl text-sm font-semibold transition-all duration-300 shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <span>Authorizing...</span>
-                ) : (
-                  <>
-                    <span>{isSignUp ? 'Register Exam Profile' : 'Authorize Security Gateway'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
         </div>
 
-        {/* Right Side: Futuristic Proctoring / Coding IDE HUD Mockup */}
-        <div className="hidden lg:flex flex-1 bg-[#050914] border-l border-slate-900 justify-center items-center p-12 relative">
-          <div className="absolute inset-0 bg-grid-pattern opacity-60" />
+        {/* Right Side: Proctor telemetry panels */}
+        <div className="hidden lg:flex flex-col w-full max-w-md space-y-6 shrink-0">
           
-          <div className="relative w-full max-w-lg space-y-6 z-10">
-            {/* Proctor Hud Mockup */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
-                  <span className="text-xs font-semibold text-slate-300">Active Integrity Proctor</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">Shield Active</span>
+          {/* Active Integrity Proctor Card */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Active Integrity Proctor</span>
               </div>
-              <div className="flex gap-4">
-                <div className="w-20 h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-700">
-                  <Eye className="w-8 h-8 text-indigo-400" />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Real-time Telemetry</span>
-                  <p className="text-xs text-slate-300 font-mono">Clipboard shield: LOCKED</p>
-                  <p className="text-xs text-slate-300 font-mono">Focus inspector: ACTIVE</p>
-                  <p className="text-xs text-slate-300 font-mono">DevTools block: ENABLED</p>
-                </div>
-              </div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">Shield Active</span>
             </div>
-
-            {/* Sandbox HUD Card */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-3 bg-gradient-to-r from-purple-950/20 to-indigo-950/20">
-              <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs uppercase tracking-wider">
-                <Terminal className="w-4 h-4" />
-                <span>Isolated Compiler Sandbox</span>
+            
+            <div className="flex gap-5 items-center border-t border-slate-900 pt-4">
+              {/* Telemetry eye graphic */}
+              <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner text-indigo-400 shrink-0">
+                <Eye className="w-7 h-7" />
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Code execution is carried out inside an isolated sandbox environment. Submissions are tracked and audited for structural compliance dynamically.
-              </p>
+              
+              <div className="space-y-1 text-[11px] font-mono text-slate-400 flex-grow">
+                <div className="text-[9px] text-slate-500 font-semibold tracking-wider uppercase mb-1">Real-time Telemetry</div>
+                <div className="flex justify-between items-center">
+                  <span>Clipboard shield:</span>
+                  <span className="text-white font-bold">LOCKED</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Focus inspector:</span>
+                  <span className="text-emerald-400 font-bold">ACTIVE</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>DevTools block:</span>
+                  <span className="text-white font-bold">ENABLED</span>
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Isolated Compiler Sandbox Card */}
+          <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-2">
+            <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
+              <Terminal className="w-4 h-4" />
+              <span>Isolated Compiler Sandbox</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
+              Code execution is carried out inside an isolated sandbox environment. Submissions are tracked and audited for structural compliance dynamically.
+            </p>
+          </div>
+
         </div>
+
       </div>
     </div>
   );

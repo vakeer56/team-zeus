@@ -6,6 +6,7 @@ const {
     updateSubmission,
     getSubmissions,
     getSubmissionDetails,
+    reauthorizeSubmission,
 } = require("../controllers/submissionController");
 const { authenticate } = require("../middleware/authenticate");
 
@@ -14,6 +15,9 @@ router.get("/", authenticate, getSubmissions);
 
 // Start a new submission
 router.post("/", authenticate, startSubmission);
+
+// Reauthorize Candidate
+router.post("/:id/reauthorize", authenticate, reauthorizeSubmission);
 
 // View single submission detail
 router.get("/:id", authenticate, getSubmissionDetails);

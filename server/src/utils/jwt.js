@@ -7,7 +7,7 @@ const generateToken = (payload) => {
 
     // Refresh token flow is not implemented yet.
     return jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: "15m",
+        expiresIn: "7d",
     });
 };
 
