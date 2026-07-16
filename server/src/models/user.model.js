@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  passwordHash: {
+  password: {
     type: String,
     required: true,
     select: false        // CRITICAL: never returned in queries by default
